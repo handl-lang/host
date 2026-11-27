@@ -17,8 +17,8 @@ curried : (x : Nat, y : Bool) ~> Nat := x ~> y ~> x
 --- `[w, v]`/`[w, [v, u]]` literals check componentwise. A binder list
 --- whose later annotations never mention an earlier binder stays the
 --- non-dependent `type.array` product.
-Nat := { Zero : Nat, Succ : (pred : Nat) ~> Nat }
-Vec<n : Nat, a : Type> := { VNil : Vec(0, a), VCons : (x : a, xs : Vec(n, a)) ~> Vec(n + 1, a) }
+Nat := new Inductive { Zero : Nat, Succ : (pred : Nat) ~> Nat }
+Vec<n : Nat, a : Type> := new Inductive { VNil : Vec(0, a), VCons : (x : a, xs : Vec(n, a)) ~> Vec(n + 1, a) }
 one_vec : (m : Nat, v : Vec(m, Bool)) := [Succ(Zero), VCons(true, VNil)]
 empty_vec : (m : Nat, v : Vec(m, Bool)) := [Zero, VNil]
 same_as_sigma : Sigma(Nat, m ~> Vec(m, Bool)) := [Succ(Zero), VCons(true, VNil)]
@@ -41,8 +41,8 @@ graded_law<N> := (g >>> g) ~[N]~> g
 --- `Algebra(payload)` calls — `[]` for pure, or a single bare mode
 --- expression. The ascription attaches to the whole type, so an
 --- arrow type sits inside parens. `Algebra` is M2's to define — the
---- same record-family stub `new_decl.hnl`/`effects.hnl` carry.
-Algebra<c : Type> := {
+--- same `new Inductive` family stub `new_decl.hnl`/`effects.hnl` carry.
+Algebra<c : Type> := new Inductive {
   mkAlgebra : (compose : c ~> c ~> c, unit : c, order : c ~> c ~> Bool) ~> Algebra
 }
 Cost := new Algebra(Nat) {

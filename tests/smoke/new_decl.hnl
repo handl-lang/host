@@ -13,11 +13,11 @@
 --- so `Cost`/`Price` coexist over the same former).
 ---
 --- `Algebra` is M2's to define (mode_compose lands with it); the stub
---- below is a record-family in the `Eq<a>` spelling — enough for
+--- below is a `new Inductive` family in the `Eq<a>` spelling — enough for
 --- `Algebra(Nat)` to elaborate as a type. When the real `Algebra`
 --- lands, swap the stub for the kit declaration.
 
-Algebra<c : Type> := {
+Algebra<c : Type> := new Inductive {
   mkAlgebra : (compose : c ~> c ~> c, unit : c, order : c ~> c ~> Bool) ~> Algebra
 }
 

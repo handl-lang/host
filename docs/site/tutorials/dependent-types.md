@@ -37,15 +37,16 @@ intentionally break one file to see what a real type error looks like.
 Create `vec.hnl`:
 
 ```hnl
-Vec<n : Nat, a : Type> := {
+Vec<n : Nat, a : Type> := new Inductive {
   VNil  : Vec(0, a),
   VCons : (x : a, xs : Vec(n, a)) ~> Vec(n + 1, a)
 }
 ```
 
 Read it as: `Vec` is a family of types indexed by a natural number
-`n` and a payload type `a`. The record is the **generator table**: a
-field whose codomain is `Vec<...>` is a constructor.
+`n` and a payload type `a`. The `new Inductive` body is the
+**generator table**: a field whose codomain is `Vec<...>` is a
+constructor.
 
 - `VNil` — the empty vector, at index `Vec(0, a)`.
 - `VCons(x, xs)` — pushes an `a` onto a `Vec(n, a)`, producing a

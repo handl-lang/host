@@ -45,23 +45,24 @@ append<n, m, a> : Vec<n, a> ~> Vec<m, a> ~> Vec<n + m, a>
 lookup<a, ev : Eq(a)>
 ```
 
-A family is declared with a **generator record** (ADR-0158): the field's
-codomain decides what the field *is*.
+A family is declared explicitly with `new Inductive` (ADR-0158): inside the
+braces, the field's codomain decides what the field *is*.
 
 ```
-Nat := { Zero : Nat, Succ : (pred : Nat) ~> Nat }
+Nat := new Inductive { Zero : Nat, Succ : (pred : Nat) ~> Nat }
 
-Vec<n : Nat, a : Type> := {
+Vec<n : Nat, a : Type> := new Inductive {
   VNil  : Vec<0, a>,
   VCons : (x : a, xs : Vec<n, a>) ~> Vec<n + 1, a>
 }
 ```
 
 A field returning the family is a constructor, folded by `match` or `F.rec`; a
-field returning anything else is an effect operation, folded by `handle`. That is
-one mechanism with two readings — which is why the same record form declares
-`State := { get : Unit ~> Nat, put : Nat ~> Unit }` and `IO` becomes an internal
-marker rather than a separate surface.
+field returning anything else is an effect operation, folded by `handle`.
+A bare `F := { … }` record is just a record — never a family — so an effect
+signature like `State := { get : Unit ~> Nat, put : Nat ~> Unit }` needs no
+`new Inductive`, and `IO` becomes an internal marker rather than a separate
+surface.
 
 The declaration is also the metadata the checker uses for index projection:
 declaring the `Succ` shape makes `Vec(Succ n)` and `Vec(n + 1)` definitional in

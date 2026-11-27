@@ -13,10 +13,10 @@
 --- `Effects(S)` row algebra are retired.
 ---
 --- `Algebra` is still M2's to define (same stub `new_decl.hnl`
---- carries); the record-family below is enough for `new Algebra`
+--- carries); the `new Inductive` family below is enough for `new Algebra`
 --- declarations to elaborate.
 
-Algebra<c : Type> := {
+Algebra<c : Type> := new Inductive {
   mkAlgebra : (compose : c ~> c ~> c, unit : c, order : c ~> c ~> Bool) ~> Algebra
 }
 

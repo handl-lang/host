@@ -7,7 +7,7 @@
 --- the *codomain*: `ua(e) : Bool ~ Nat` transports `true : Bool` to
 --- `Nat`, so the result does not inhabit `Bool` (ADR-0208 P4).
 
-Nat := {
+Nat := new Inductive {
   Zero : Nat,
   Succ : (pred : Nat) ~> Nat
 }

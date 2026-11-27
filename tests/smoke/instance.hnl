@@ -11,12 +11,12 @@
 --- erasure class — `match ev` has no dict value to dispatch on under
 --- `hnl run` today.
 
-Nat := {
+Nat := new Inductive {
   Zero : Nat,
   Succ : (pred : Nat) ~> Nat
 }
 
-Eq<a : Type> := {
+Eq<a : Type> := new Inductive {
   mkEq : (f : a ~> a ~> Bool) ~> Eq
 }
 

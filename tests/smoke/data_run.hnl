@@ -11,14 +11,14 @@
 --- eval with a stderr note (`lower_ast unsupported … falling back`);
 --- exit code and stdout stay clean, the note is expected.
 
-Nat := {
+Nat := new Inductive {
   Zero : Nat,
   Succ : (pred : Nat) ~> Nat
 }
 
 to_num : Nat ~> Number := n ~> match n { Zero: 0, Succ(p): 1 + to_num(p) }
 
-Opt<a : Type> := {
+Opt<a : Type> := new Inductive {
   None : Opt,
   Some : (x : a) ~> Opt
 }

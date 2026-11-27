@@ -2,12 +2,12 @@
 --- (explicit-Pi surface sugar), and `~[n]~>` dimension arrows. Driven by
 --- `hnl typecheck` (see `ci.sh smoke`).
 
-Nat := {
+Nat := new Inductive {
   Zero : Nat,
   Succ : (pred : Nat) ~> Nat
 }
 
-Vec<n : Nat, a : Type> := {
+Vec<n : Nat, a : Type> := new Inductive {
   VNil : Vec(0, a),
   VCons : (x : a, xs : Vec(n, a)) ~> Vec(n + 1, a)
 }

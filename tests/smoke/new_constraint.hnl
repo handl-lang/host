@@ -3,8 +3,8 @@
 --- MTT migration). Driven by `hnl typecheck` (see `ci.sh smoke`).
 ---
 --- `new Constraint(Type)` binds `Eq` as a `type.family` — the same
---- head the record-spelling `Eq<a : Type>` inductive-family form
---- produces — so `instance Eq(Nat) := dict` registers and implicit
+--- head the `Eq<a : Type> := new Inductive` form produces — so
+--- `instance Eq(Nat) := dict` registers and implicit
 --- `<ev : Eq(a)>` evidence binders discharge by the unchanged
 --- dictionary search (`synth_instance`/`resolve_instance`). The `{…}`
 --- child is the evidence *shape* — a signature record kept as
@@ -17,12 +17,12 @@
 --- Check-side only: `hnl run` has no evidence values to dispatch on
 --- (the same erasure caveat as instance.hnl).
 
-Nat := {
+Nat := new Inductive {
   Zero : Nat,
   Succ : (pred : Nat) ~> Nat
 }
 
-Bool := {
+Bool := new Inductive {
   True : Bool,
   False : Bool
 }
@@ -31,7 +31,7 @@ Bool := {
 --- checker-native (the unified registry's constraint kind); the stub
 --- only binds the schema head as a wire for the scope pass, the same
 --- role the `Algebra` stub plays in new_decl.hnl.
-Constraint<s : Type> := {
+Constraint<s : Type> := new Inductive {
   mkConstraint : (shape : Type) ~> Constraint
 }
 

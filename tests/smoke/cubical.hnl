@@ -33,12 +33,12 @@
 ---   * `refl` remains a judge-resolved introduction, not a seeded
 ---     wire — the scope pass binds it through its own exemption list.
 
-Nat := {
+Nat := new Inductive {
   Zero : Nat,
   Succ : (pred : Nat) ~> Nat
 }
 
-Vec<n : Nat, a : Type> := {
+Vec<n : Nat, a : Type> := new Inductive {
   VNil : Vec(0, a),
   VCons : (x : a, xs : Vec(n, a)) ~> Vec(n + 1, a)
 }

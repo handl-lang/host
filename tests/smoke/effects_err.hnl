@@ -5,7 +5,7 @@
 --- directional: `effect head `FsRead` is not permitted by the
 --- ascription's mode set`.
 
-Algebra<c : Type> := {
+Algebra<c : Type> := new Inductive {
   mkAlgebra : (compose : c ~> c ~> c, unit : c, order : c ~> c ~> Bool) ~> Algebra
 }
 
