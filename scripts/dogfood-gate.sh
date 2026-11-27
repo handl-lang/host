@@ -185,11 +185,24 @@ if [ "${#canonical_files[@]}" -gt 0 ]; then
   # toolchain does not provide — environmental, reported but not
   # counted. A nonzero exit with no FAIL lines (crash/infra) or any
   # non-call_host FAIL still fails.
+  #
+  # `lib-*-js` backends are the same class one level down: they need a
+  # JS runtime host (`js.call`/`ffi.call` → a real JS engine) that this
+  # toolchain does not ship, so every case fails environmentally
+  # (`callee is not an arrow-value`, div-by-zero on ffi garbage, …).
+  # Files under `lib-*-js/` (and their `.git` worktree twins) are
+  # excused wholesale — nothing in them can execute here.
   run_test_file() {
     local f=$1 out rc fails real
     out=$("$HNL" test --jobs 4 "$f" 2>&1); rc=$?
     printf '%s\n' "$out"
     [ "$rc" -eq 0 ] && return 0
+    case "$f" in
+      */lib-*-js/*|*/lib-*-js.git/*)
+        echo "   (js-ffi backend — no JS runtime in this toolchain; not counted)"
+        return 0
+        ;;
+    esac
     fails=$(printf '%s\n' "$out" | grep -c '^FAIL' || true)
     real=$(printf '%s\n' "$out" | grep '^FAIL' | grep -vc 'call_host: function ' || true)
     { [ "${fails:-0}" -gt 0 ] && [ "${real:-0}" -eq 0 ]; } && return 0
