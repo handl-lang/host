@@ -106,12 +106,12 @@ Latest full run: **4,287 tests run, 4,287 passed, 0 failed, 182 skipped**
 
 ## CI — bupha shell runner, not GHA
 
-CI is the bupha shell runner (`bupha.toml` + `scripts/ci.sh`) — no
-containers, no docker, no GHA. `bupha watch` (or `scripts/ci-watch.sh`
-for polling) runs `bash scripts/ci.sh` in a detached worktree of each new
-sha and posts `ci/bupha` commit statuses; `bupha run` runs the same gate
-in this checkout. The old Dagger module (`dagger/src/ci/main.py`) is
-deprecated but kept on disk for reference.
+CI is the peregrin campaign in `workflows/gate.yaml`, driven by the
+bupha shell runner (`bupha.toml`): the runner executes
+`peregrin campaign run workflows/gate.yaml` in a detached worktree of
+each new sha and checks `.ci-result.json`'s conclusion. `scripts/ci.sh`
+is retired fleet-wide (kept for reference); the old Dagger module was
+removed — CI never used containers.
 
 ```bash
 bupha run                     # the whole gate, in this checkout
