@@ -178,7 +178,26 @@ if [ "${#canonical_files[@]}" -gt 0 ]; then
   # module state per file and gets OOM-killed (~9GB on ~225 files);
   # even 12-file batches at -P8 blew past 11GB. One file per process
   # bounds peak RSS to the worst single file.
-  if ! printf '%s\n' "${canonical_files[@]}" | xargs -P "$JOBS" -n 1 "$HNL" test --jobs 4; then
+  #
+  # `run_test_file` mirrors the package gates' convention
+  # (scripts/hnl-gate.sh): a file whose failures are ALL
+  # `call_host: function '<name>' not found` reached a host native this
+  # toolchain does not provide — environmental, reported but not
+  # counted. A nonzero exit with no FAIL lines (crash/infra) or any
+  # non-call_host FAIL still fails.
+  run_test_file() {
+    local f=$1 out rc fails real
+    out=$("$HNL" test --jobs 4 "$f" 2>&1); rc=$?
+    printf '%s\n' "$out"
+    [ "$rc" -eq 0 ] && return 0
+    fails=$(printf '%s\n' "$out" | grep -c '^FAIL' || true)
+    real=$(printf '%s\n' "$out" | grep '^FAIL' | grep -vc 'call_host: function ' || true)
+    { [ "${fails:-0}" -gt 0 ] && [ "${real:-0}" -eq 0 ]; } && return 0
+    return 1
+  }
+  export -f run_test_file
+  export HNL
+  if ! printf '%s\n' "${canonical_files[@]}" | xargs -P "$JOBS" -n 1 bash -c 'run_test_file "$1"' _; then
     test_status=1
     status=1
   fi
