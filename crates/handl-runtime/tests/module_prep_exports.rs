@@ -304,39 +304,70 @@ fn separatorless_export_is_a_loud_error() {
     std::fs::remove_dir_all(&root).ok();
 }
 
-/// `export data F := { C : R, … }` — the canonical family-record
-/// declaration under `export` — must behave like the `data` declaration
-/// plus exports of the family *and* each constructor. The declaration is
-/// preserved verbatim inside the prepared `do` block (the desugar pass
-/// expands it into the former/ctor/recursor assigns there) and the
-/// record projects `F`, `Zero`, `Succ`, … — previously the `export`
-/// bound a bogus `data F` name and the family residue failed.
+/// `export F := new Inductive { … }` — the canonical family declaration
+/// under `export` — exports the family name; the family *value* carries
+/// its constructors, so `F.Ctor` reaches them importer-side. The
+/// declaration rides the ordinary `name := expr` binding path (the
+/// desugar pass expands the `new Inductive` RHS into the
+/// former/ctor/recursor assigns inside the prepared `do` block).
 #[test]
-fn export_data_record_exports_family_and_ctors() {
-    let root = scratch_dir("export-data-record");
-    let src = "export data Nat := { Zero : Nat, Succ : (pred : Nat) ~> Nat }\nexport two := Succ(Succ(Zero))\n";
+fn export_new_inductive_exports_family_record() {
+    let root = scratch_dir("export-new-inductive");
+    let src = "export Nat := new Inductive { Zero : Nat, Succ : (pred : Nat) ~> Nat }\nexport two := Succ(Succ(Zero))\n";
 
-    // Name seeding sees every bound name.
+    // Name seeding sees the declared exports — the family name and the
+    // ordinary binding (constructor names live inside the family
+    // record, not as bare module exports).
     let names = handl_runtime::module_prep::module_export_names(src);
-    for name in ["Nat", "Zero", "Succ", "two"] {
+    for name in ["Nat", "two"] {
         assert!(
             names.iter().any(|n| n == name),
             "missing export {name}: {names:?}"
         );
     }
+    for name in ["Zero", "Succ"] {
+        assert!(
+            !names.iter().any(|n| n == name),
+            "ctor {name} must not be a bare export: {names:?}"
+        );
+    }
 
-    // The ctor values cross the module boundary as data — `match`
-    // dispatches on them importer-side via the `C()`/`C(x)` call-pattern
-    // forms (bare `Zero:` is a binder pattern, and *applying* a ctor
-    // arrow cross-module is a separate pre-existing limitation, so the
-    // interesting value is minted inside the module).
+    // The ctor values cross the module boundary inside the family
+    // record — alias them locally so the `match` patterns resolve
+    // through `scope_value`.
     let value = run(
         &root,
         src,
-        r#"do { from "mod.hnl" import two, Zero, Succ; match two { Zero(): 0, Succ(p): match p { Zero(): 1, Succ(q): 2 } } }"#,
+        r#"do {
+            from "mod.hnl" import two, Nat;
+            Zero := Nat.Zero;
+            Succ := Nat.Succ;
+            match two { Zero(): 0, Succ(p): match p { Zero(): 1, Succ(q): 2 } }
+        }"#,
     )
-    .expect("export data module must evaluate");
+    .expect("export new Inductive module must evaluate");
     assert_eq!(value, json!(2), "two := Succ(Succ(Zero))");
+    std::fs::remove_dir_all(&root).ok();
+}
+
+/// `export data F := …` is a retired declaration form — the `data`
+/// keyword is gone from the surface. Module prep fails loudly with a
+/// migration error instead of silently producing an empty record.
+#[test]
+fn export_data_is_a_loud_error() {
+    let root = scratch_dir("export-data-retired");
+    for src in [
+        "export data Nat := { Zero : Nat, Succ : (pred : Nat) ~> Nat }\n",
+        "export data Nat := Zero | Succ(n : Nat)\n",
+        "export data Vec(n : Nat, a : Type) := { VNil : Vec(0, a) }\n",
+    ] {
+        let err = run(&root.join("m"), src, "1")
+            .expect_err("export data must fail module prep");
+        assert!(
+            err.contains("export data") && err.contains("new Inductive"),
+            "error should name the retired form and its replacement, got: {err}"
+        );
+    }
     std::fs::remove_dir_all(&root).ok();
 }
 
@@ -403,34 +434,50 @@ fn export_family_value_carries_ctors() {
     std::fs::remove_dir_all(&root).ok();
 }
 
-/// Same guarantee through `export data`: the family record is the
-/// exported value for `F`, and `j.F.rec` still reaches the eliminator.
+/// Same guarantee for a *parametric* family: `export Vec<n : Nat, a :
+/// Type> := new Inductive { … }` exports the family record — `j.Vec.rec`
+/// still reaches the eliminator and the ctor arrows apply through the
+/// record fields.
 #[test]
-fn export_data_family_value_carries_ctors() {
-    let root = scratch_dir("export-data-family-value");
-    let src = "export data Nat := { Zero : Nat, Succ : (pred : Nat) ~> Nat }\n";
+fn export_parametric_family_value_carries_ctors() {
+    let root = scratch_dir("export-parametric-family-value");
+    let src = "export Vec<n : Nat, a : Type> := new Inductive { VNil : Vec(0, a), VCons : (x : a, xs : Vec(n, a)) ~> Vec(n + 1, a) }\n";
 
-    // `j.Nat.Succ` is the ctor arrow; `j.Nat.Zero` the nullary ctor
-    // object; `j.Nat.rec` the eliminator. Ctor names are aliased locally
-    // so the `match` patterns resolve through `scope_value`.
+    // `j.Vec.VCons`/`j.Vec.VNil` are the ctor arrow/object;
+    // `j.Vec.rec` the eliminator. Ctor names are aliased locally so the
+    // `match` patterns resolve through `scope_value`.
     let value = run(
         &root.join("apply"),
         src,
         r#"do {
             from "mod.hnl" import * as j;
-            Zero := j.Nat.Zero;
-            Succ := j.Nat.Succ;
-            match Succ(Zero) { Zero: 0, Succ(p): 1 }
+            VNil := j.Vec.VNil;
+            VCons := j.Vec.VCons;
+            match VCons(1, VNil) { VNil: 0, VCons(x, xs): x }
         }"#,
     )
-    .expect("j.Nat.Succ must apply through the family record");
+    .expect("j.Vec.VCons must apply through the family record");
     assert_eq!(value, json!(1));
 
-    // `j.Nat.rec` still reaches the eliminator through the family
-    // record — `Nat.rec(null, zeroCase, succStep)(v)` is the shape
-    // `desugar_match_to_recursor` emits for a parameter-free family.
+    // Name seeding reports the family name (the `<…>` parameter list is
+    // not part of the exported binding name).
+    let names = handl_runtime::module_prep::module_export_names(src);
+    assert!(
+        names.iter().any(|n| n == "Vec"),
+        "missing export Vec: {names:?}"
+    );
+    std::fs::remove_dir_all(&root).ok();
+}
+
+/// `j.F.rec` still reaches the eliminator through the exported family
+/// record — `Nat.rec(null, zeroCase, succStep)(v)` is the shape
+/// `desugar_match_to_recursor` emits for a parameter-free family.
+#[test]
+fn export_family_rec_reaches_eliminator() {
+    let root = scratch_dir("export-family-rec");
+    let src = "export Nat := new Inductive { Zero : Nat, Succ : (pred : Nat) ~> Nat }\n";
     let value = run(
-        &root.join("rec"),
+        &root,
         src,
         r#"do {
             from "mod.hnl" import * as j;
@@ -439,58 +486,6 @@ fn export_data_family_value_carries_ctors() {
     )
     .expect("j.Nat.rec must apply through the family record");
     assert_eq!(value, json!(11), "rec(Succ(Zero)) = step(Zero, rec(Zero))");
-    std::fs::remove_dir_all(&root).ok();
-}
-
-/// `export data F := C0 | C1(…)` — the `:=` constructor-arm
-/// spelling (`:=` is the only binding operator; the old `::` is gone)
-/// must carry the decl verbatim and export the family plus each
-/// constructor arm's name.
-#[test]
-fn export_data_colon_form_exports_family_and_ctors() {
-    let root = scratch_dir("export-data-colon");
-    let src = "export data Nat := Zero | Succ(n : Nat)\nexport one := Succ(Zero)\n";
-
-    let names = handl_runtime::module_prep::module_export_names(src);
-    for name in ["Nat", "Zero", "Succ", "one"] {
-        assert!(
-            names.iter().any(|n| n == name),
-            "missing export {name}: {names:?}"
-        );
-    }
-
-    let value = run(
-        &root,
-        src,
-        r#"do { from "mod.hnl" import one, Zero, Succ; match one { Zero(): 0, Succ(p): match p { Zero(): 1, Succ(q): 2 } } }"#,
-    )
-    .expect("export data := module must evaluate");
-    assert_eq!(value, json!(1), "one := Succ(Zero)");
-    std::fs::remove_dir_all(&root).ok();
-}
-
-/// `export data` mixed with ordinary exports keeps source order: the
-/// decl's assigns bind before the sibling binding that references them.
-#[test]
-fn export_data_alongside_plain_exports() {
-    let root = scratch_dir("export-data-mixed");
-    let src = "export double : Number ~> Number := n ~> n * 2\nexport data Wrap := { Mk : (x : Number) ~> Wrap, Empty : Wrap }\nexport wrapped := Mk(21)\n";
-    let value = run(
-        &root,
-        src,
-        r#"do { from "mod.hnl" import wrapped, Mk, Empty; match wrapped { Mk(x): x, _: 0 } }"#,
-    )
-    .expect("mixed export data module must evaluate");
-    // `wrapped` is `Mk(21)` — matching extracts the payload.
-    assert_eq!(value, json!(21));
-    // `double` still exports and evaluates.
-    let value = run(
-        &root,
-        "export double : Number ~> Number := n ~> n * 2\n",
-        r#"do { from "mod.hnl" import double; double(21) }"#,
-    )
-    .expect("plain export still works");
-    assert_eq!(value, json!(42));
     std::fs::remove_dir_all(&root).ok();
 }
 

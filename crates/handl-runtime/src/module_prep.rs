@@ -34,7 +34,7 @@ pub struct PreparedModule {
     pub line_map: Vec<Option<u32>>,
     /// Total lines in the input source.
     pub origin_lines: u32,
-    /// Whether the source declares any `export` (including `export data`,
+    /// Whether the source declares any `export` (including
     /// `from "…" export …` re-exports, host-module `export` imports, and
     /// `op "…"` declarations). Star imports (`import *`, `import * as`,
     /// bare `import "…"`) bind only the declared-export record — a module
@@ -145,13 +145,13 @@ pub fn module_export_names(src: &str) -> Vec<String> {
             continue;
         }
         if let Some(rest) = export_decl_rest(trimmed) {
-            if is_data_decl_rest(rest) {
-                // `export data F := …` exports the family and each
-                // constructor the declaration binds.
-                if let Some(names) = data_decl_bound_names(rest) {
-                    exported.extend(names);
-                }
-            } else if let Some((sep_pos, _)) = find_binding_sep(rest) {
+            // `export data F := …` is a retired declaration form —
+            // name seeding skips it (best-effort); `prepare_module`
+            // reports it as an error.
+            if is_retired_data_decl_rest(rest) {
+                continue;
+            }
+            if let Some((sep_pos, _)) = find_binding_sep(rest) {
                 let name = strip_export_name(&rest[..sep_pos]);
                 exported.push(name.clone());
             } else if let Some(names) = reexport_name_list(rest) {
@@ -285,10 +285,10 @@ impl Piece {
 
 /// One top-level item of the prepared `do { … }` body, in source order.
 ///
-/// Most items are `name := expr` assignments; `export data …`
-/// declarations are *verbatim statements* instead — the desugar pass
-/// expands them into former/constructor/recursor assigns, so they have
-/// no `name := expr` surface form to rewrite into.
+/// Items are `name := expr` assignments; family declarations
+/// (`F<…> := new Inductive { … }`) ride the same `name := expr` shape —
+/// the desugar pass expands the `new Inductive` RHS into
+/// former/constructor/recursor assigns.
 enum PrepItem {
     /// `name := expr` — emitted as a do-block assignment; `exported`
     /// names join the trailing record projection. `stmt_line` is the
@@ -301,23 +301,14 @@ enum PrepItem {
         pieces: Vec<Piece>,
         exported: bool,
     },
-    /// A verbatim declaration statement (`export data F := …` — the
-    /// text keeps its `data` keyword). `exports` lists the names the
-    /// declaration binds that join the module record (the family name
-    /// and each constructor name; `F.rec` is dotted and cannot be a
-    /// record field).
-    Decl {
-        pieces: Vec<Piece>,
-        exports: Vec<String>,
-    },
 }
 
 impl PrepItem {
     /// The statement text lines accumulated so far — the continuation
-    /// sink for wrapped expressions/decls.
+    /// sink for wrapped expressions.
     fn pieces_mut(&mut self) -> &mut Vec<Piece> {
         match self {
-            PrepItem::Bind { pieces, .. } | PrepItem::Decl { pieces, .. } => pieces,
+            PrepItem::Bind { pieces, .. } => pieces,
         }
     }
 
@@ -326,7 +317,7 @@ impl PrepItem {
     /// still incomplete.
     fn pieces(&self) -> &[Piece] {
         match self {
-            PrepItem::Bind { pieces, .. } | PrepItem::Decl { pieces, .. } => pieces,
+            PrepItem::Bind { pieces, .. } => pieces,
         }
     }
 }
@@ -337,8 +328,8 @@ impl PrepItem {
 /// same erasure applies to signature exports `export Name := A ~[N]~> B`
 /// whose RHS is a bare graded-arrow signature ([`is_signature_rhs`]): its
 /// boundary children are type expressions that exec must not evaluate.
-/// `export data F := …` declarations are preserved verbatim and export
-/// the family/constructor names they bind ([`data_decl_bound_names`]).
+/// `export data F := …` is a retired declaration form — it fails with a
+/// migration error pointing at `export F := new Inductive { … }`.
 ///
 /// The source is consumed as top-level *statements*
 /// ([`top_level_segments`]) — not lines — so an `export` is recognized
@@ -488,9 +479,8 @@ fn transform_export_to_object(
                     // import statement itself binds them).
                     for local in import_bound_locals(trimmed) {
                         if is_valid_ident(&local)
-                            && !items.iter().any(|item| match item {
-                                PrepItem::Bind { name, .. } => *name == local,
-                                PrepItem::Decl { .. } => false,
+                            && !items.iter().any(|item| {
+                                matches!(item, PrepItem::Bind { name, .. } if *name == local)
                             })
                         {
                             import_bound.push(local);
@@ -518,24 +508,19 @@ fn transform_export_to_object(
         }
         if let Some(rest) = export_decl_rest(trimmed) {
             finalize!();
-            // `export data F := …` — a family declaration, not a
-            // `name := expr` binding: keep the decl verbatim (its
-            // `data` keyword included — the desugar pass consumes the
-            // stray `var "data"` marker) and export the names it binds.
-            if is_data_decl_rest(rest) {
-                let Some(exports) = data_decl_bound_names(rest) else {
-                    return Err(LangError::engine(format!(
-                        "module prep: cannot read the family/constructor \
-                         names of `export data` declaration: {}",
-                        trimmed
-                    )));
-                };
-                current = Some(PrepItem::Decl {
-                    pieces: vec![Piece::new(rest.trim(), Some(line_of(offset_of(rest))))],
-                    exports,
-                });
-                tail_is_binding = true;
-                continue;
+            // `export data F := …` is a retired declaration form — the
+            // `data` keyword is gone from the surface. The canonical
+            // family export is `export F<…> := new Inductive { … }`
+            // (or `export F := new Inductive { … }`), whose family
+            // record carries the constructors.
+            if is_retired_data_decl_rest(rest) {
+                return Err(LangError::engine(format!(
+                    "module prep: `export data` declarations are removed — \
+                     declare the family as `export F := new Inductive {{ … }}` \
+                     (params: `export F<n : Nat, a : Type> := new Inductive {{ … }}`); \
+                     the exported family record carries its constructors: {}",
+                    trimmed
+                )));
             }
             let Some((sep_pos, sep_len)) = find_binding_sep(rest) else {
                 // `export <name>[, <name>…]` — a bare re-export list
@@ -656,9 +641,8 @@ fn transform_export_to_object(
         let local = qualified.rsplit('.').next().unwrap_or(qualified);
         if local.is_empty()
             || !is_valid_ident(local)
-            || items.iter().any(|item| match item {
-                PrepItem::Bind { name, .. } => name == local,
-                PrepItem::Decl { .. } => false,
+            || items.iter().any(|item| {
+                matches!(item, PrepItem::Bind { name, .. } if name == local)
             })
         {
             continue;
@@ -672,19 +656,17 @@ fn transform_export_to_object(
     }
 
     // Apply bare `export <name>[, <name>…]` re-exports. Each name must
-    // resolve to a top-level binding: an `export data` family/constructor
-    // name is already projected; the *last* `:=` binding of that name is
+    // resolve to a top-level binding: a family name bound by
+    // `F<…> := new Inductive { … }` is already a `:=` binding; the
+    // *last* `:=` binding of that name is
     // marked exported in place (forward references work — every binding
     // emits before the record); an import-bound local gets a self-binding
     // (`name := name`) since the hoisted import binds it at eval time.
     // Anything else is a loud prep error — a typo'd re-export would
     // otherwise surface far away as an unbound-name eval error.
     for name in reexports {
-        let already = items.iter().any(|item| match item {
-            PrepItem::Bind {
-                name: n, exported, ..
-            } => *n == name && *exported,
-            PrepItem::Decl { exports, .. } => exports.iter().any(|e| *e == name),
+        let already = items.iter().any(|item| {
+            matches!(item, PrepItem::Bind { name: n, exported, .. } if *n == name && *exported)
         });
         if already {
             continue;
@@ -702,9 +684,8 @@ fn transform_export_to_object(
                 matches!(item, PrepItem::Bind { name: n, exported: false, .. } if *n == name)
             })
             .map(|item| {
-                if let PrepItem::Bind { exported, .. } = item {
-                    *exported = true;
-                }
+                let PrepItem::Bind { exported, .. } = item;
+                *exported = true;
             });
         if marked.is_some() {
             continue;
@@ -723,9 +704,8 @@ fn transform_export_to_object(
         )));
     }
 
-    let has_exports = items.iter().any(|item| match item {
-        PrepItem::Bind { exported, .. } => *exported,
-        PrepItem::Decl { exports, .. } => !exports.is_empty(),
+    let has_exports = items.iter().any(|item| {
+        matches!(item, PrepItem::Bind { exported, .. } if *exported)
     });
 
     let imports = collect_executable_import_pieces(src, is_file_spec, &line_starts);
@@ -781,12 +761,6 @@ fn transform_export_to_object(
                         pieces,
                         ..
                     } => push_field(&mut out, name, pieces, *stmt_line),
-                    PrepItem::Decl { pieces, exports } => {
-                        let decl_line = pieces.first().and_then(|p| p.line);
-                        for name in exports {
-                            push_field(&mut out, name, &[], decl_line);
-                        }
-                    }
                 }
             }
             for name in &import_bound {
@@ -835,52 +809,29 @@ fn transform_export_to_object(
                 out.push_expr_pieces(pieces);
                 out.push(";\n", None);
             }
-            // `export data …` — the verbatim declaration statement; the
-            // desugar pass expands it into the family/ctor/recursor
-            // assigns inside this same `do` block.
-            PrepItem::Decl { pieces, .. } => {
-                out.push_pieces(pieces);
-                out.push(";\n", None);
-            }
         }
     }
     out.push("{ ", None);
     let mut first = true;
     for item in &items {
-        let (names, pieces, stmt_line, exported): (Vec<&str>, &[Piece], Option<u32>, bool) =
-            match item {
-                PrepItem::Bind {
-                    name,
-                    stmt_line,
-                    pieces,
-                    exported,
-                } => (
-                    vec![name.as_str()],
-                    pieces.as_slice(),
-                    *stmt_line,
-                    *exported,
-                ),
-                PrepItem::Decl { pieces, exports } => (
-                    exports.iter().map(String::as_str).collect(),
-                    &[],
-                    pieces.first().and_then(|p| p.line),
-                    true,
-                ),
-            };
+        let PrepItem::Bind {
+            name,
+            stmt_line,
+            pieces,
+            exported,
+        } = item;
         if !exported {
             continue;
         }
-        for name in names {
-            if !first {
-                out.push(", ", None);
-            }
-            first = false;
-            if is_bindable(name) {
-                out.push(&format!("{name}: {name}"), stmt_line);
-            } else {
-                out.push(&format!("\"{name}\": "), stmt_line);
-                out.push_expr_pieces(pieces);
-            }
+        if !first {
+            out.push(", ", None);
+        }
+        first = false;
+        if is_bindable(name) {
+            out.push(&format!("{name}: {name}"), *stmt_line);
+        } else {
+            out.push(&format!("\"{name}\": "), *stmt_line);
+            out.push_expr_pieces(pieces);
         }
     }
     out.push(" }", None);
@@ -889,7 +840,7 @@ fn transform_export_to_object(
 }
 
 /// Whether a non-binding top-level `seg` continues the in-flight item
-/// (`name := …` / `export data …`) instead of opening a new statement.
+/// (`name := …`) instead of opening a new statement.
 ///
 /// The emitted text is verbatim either way — this decides only whether
 /// the item's expression is *complete* (so a trailing bare expression
@@ -1159,12 +1110,13 @@ fn reexport_name_list(rest: &str) -> Option<Vec<String>> {
     Some(names)
 }
 
-/// Whether `rest` (the text after `export`) opens a `data` family
-/// declaration — the `data` keyword followed by the family name.
-/// `export data_transfer := …` is an ordinary binding (`data_transfer`
-/// is one identifier) and `export data := …` binds the name `data`;
-/// neither is a declaration.
-fn is_data_decl_rest(rest: &str) -> bool {
+/// Whether `rest` (the text after `export`) opens a retired `data`
+/// family declaration — the `data` keyword followed by the family
+/// name. `export data_transfer := …` is an ordinary binding
+/// (`data_transfer` is one identifier) and `export data := …` binds
+/// the name `data`; neither is a declaration. The `data` keyword is
+/// removed from the surface — matches are reported as errors.
+fn is_retired_data_decl_rest(rest: &str) -> bool {
     let rest = rest.trim_start();
     let Some(after) = rest.strip_prefix("data") else {
         return false;
@@ -1180,166 +1132,6 @@ fn is_data_decl_rest(rest: &str) -> bool {
         .chars()
         .next()
         .is_some_and(|c| c.is_alphabetic() || c == '_')
-}
-
-/// Skip a balanced `open…close` group at the start of `s`, returning the
-/// remainder. `None` when the group never closes.
-fn skip_balanced<'a>(s: &'a str, open: char, close: char) -> Option<&'a str> {
-    if !s.starts_with(open) {
-        return Some(s);
-    }
-    let mut depth = 0i32;
-    let mut in_str: Option<u8> = None;
-    for (i, c) in s.char_indices() {
-        if let Some(q) = in_str {
-            if c as u32 == q as u32 {
-                in_str = None;
-            }
-            continue;
-        }
-        match c {
-            '"' | '\'' => in_str = Some(c as u8),
-            _ if c == open => depth += 1,
-            _ if c == close => {
-                depth -= 1;
-                if depth == 0 {
-                    return Some(&s[i + c.len_utf8()..]);
-                }
-            }
-            _ => {}
-        }
-    }
-    None
-}
-
-/// The interior of the balanced `open…close` group at the start of `s`
-/// (which must begin with `open`). `None` when the group never closes.
-fn balanced_inner<'a>(s: &'a str, open: char, close: char) -> Option<&'a str> {
-    if !s.starts_with(open) {
-        return None;
-    }
-    let mut depth = 0i32;
-    let mut in_str: Option<u8> = None;
-    for (i, c) in s.char_indices() {
-        if let Some(q) = in_str {
-            if c as u32 == q as u32 {
-                in_str = None;
-            }
-            continue;
-        }
-        match c {
-            '"' | '\'' => in_str = Some(c as u8),
-            _ if c == open => depth += 1,
-            _ if c == close => {
-                depth -= 1;
-                if depth == 0 {
-                    return Some(&s[open.len_utf8()..i]);
-                }
-            }
-            _ => {}
-        }
-    }
-    None
-}
-
-/// Split `s` at `sep` characters at bracket depth zero (strings
-/// respected) — the `|` constructor separator of a `data F := …` arm
-/// list.
-fn split_top_level(s: &str, sep: char) -> Vec<&str> {
-    let bytes = s.as_bytes();
-    let sep = sep as u8;
-    let mut items = Vec::new();
-    let mut depth = 0i32;
-    let mut in_str: Option<u8> = None;
-    let mut start = 0usize;
-    let mut i = 0usize;
-    while i < bytes.len() {
-        let c = bytes[i];
-        if let Some(q) = in_str {
-            if c == b'\\' {
-                i += 1;
-            } else if c == q {
-                in_str = None;
-            }
-        } else {
-            match c {
-                b'"' | b'\'' => in_str = Some(c),
-                b'(' | b'[' | b'{' => depth += 1,
-                b')' | b']' | b'}' => depth -= 1,
-                _ if c == sep && depth == 0 => {
-                    items.push(&s[start..i]);
-                    start = i + 1;
-                }
-                _ => {}
-            }
-        }
-        i += 1;
-    }
-    items.push(&s[start..]);
-    items
-}
-
-/// The leading identifier of a constructor arm (`C1(x : T)` → `C1`).
-fn ctor_arm_name(arm: &str) -> Option<String> {
-    let arm = arm.trim_start();
-    let end = arm
-        .find(|c: char| !(c.is_alphanumeric() || c == '_'))
-        .unwrap_or(arm.len());
-    let name = &arm[..end];
-    is_valid_ident(name).then(|| name.to_string())
-}
-
-/// The names a `data` declaration binds, for the module record: the
-/// family name plus each constructor name. `F.rec` is a dotted name —
-/// it can't be a record field — so only `F` and the bare constructor
-/// bindings are projected. `decl` is the full `data …` text (keyword
-/// included). `None` when no family name is recognizable — the caller
-/// reports rather than silently dropping the declaration.
-fn data_decl_bound_names(decl: &str) -> Option<Vec<String>> {
-    let mut s = decl.trim_start().strip_prefix("data")?.trim_start();
-    // Family name: leading identifier; optional `<…>`/`(…)` parameter
-    // lists may follow before the declaration separator.
-    let fam_end = s
-        .find(|c: char| !(c.is_alphanumeric() || c == '_'))
-        .unwrap_or(s.len());
-    let family = &s[..fam_end];
-    if !is_valid_ident(family) {
-        return None;
-    }
-    let mut names = vec![family.to_string()];
-    s = s[fam_end..].trim_start();
-    if s.starts_with('<') {
-        s = skip_balanced(s, '<', '>')?.trim_start();
-    } else if s.starts_with('(') {
-        s = skip_balanced(s, '(', ')')?.trim_start();
-    }
-    if let Some(ctors) = s.strip_prefix(":=") {
-        let rhs = ctors.trim_start();
-        if rhs.starts_with('{') {
-            // `data F := { C : R, … }` — the record form's keys are the
-            // constructor names.
-            if let Some(inner) = balanced_inner(rhs, '{', '}') {
-                for entry in split_top_commas(inner) {
-                    if let Some(key) = record_field_key(entry) {
-                        if is_valid_ident(&key) && !names.iter().any(|n| *n == key) {
-                            names.push(key);
-                        }
-                    }
-                }
-            }
-        } else {
-            // `data F := C0 | C1(x : T) | …` — constructor arms (`:=` is
-            // the only binding operator; the old `::` spelling is gone).
-            for arm in split_top_level(rhs, '|') {
-                if let Some(name) = ctor_arm_name(arm) {
-                    if !names.iter().any(|n| *n == name) {
-                        names.push(name);
-                    }
-                }
-            }
-        }
-    }
-    Some(names)
 }
 
 /// Split a module source into its top-level statements, returning each
@@ -1788,44 +1580,6 @@ fn split_top_commas(s: &str) -> Vec<&str> {
     }
     items.push(&s[start..]);
     items
-}
-
-/// The field key of a `name : value` record entry — an identifier
-/// followed by a depth-zero `:` that is not `:=` (a binding, not a
-/// field). `None` when the item is not a keyed field (a binding, an
-/// expression, a type annotation).
-fn record_field_key(item: &str) -> Option<String> {
-    let item = item.trim();
-    let bytes = item.as_bytes();
-    let mut depth = 0i32;
-    let mut in_str: Option<u8> = None;
-    let mut i = 0usize;
-    while i < bytes.len() {
-        let c = bytes[i];
-        if let Some(q) = in_str {
-            if c == b'\\' {
-                i += 1;
-            } else if c == q {
-                in_str = None;
-            }
-        } else {
-            match c {
-                b'"' | b'\'' => in_str = Some(c),
-                b'(' | b'[' | b'{' => depth += 1,
-                b')' | b']' | b'}' => depth -= 1,
-                b':' if depth == 0 => {
-                    if bytes.get(i + 1).is_some_and(|&n| n == b':' || n == b'=') {
-                        return None;
-                    }
-                    let key = item[..i].trim();
-                    return is_valid_ident(key).then(|| key.to_string());
-                }
-                _ => {}
-            }
-        }
-        i += 1;
-    }
-    None
 }
 
 /// Drop every top-level import statement, as provenance-tracked

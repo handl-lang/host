@@ -885,7 +885,8 @@ fn transform_export_to_object(src: &str, op_names: &[String]) -> String {
 }
 
 /// Whether a non-binding top-level `seg` continues the in-flight item
-/// (`name := …` / `export data …`) instead of opening a new statement.
+/// (`name := …` / `export F := new Inductive { … }`) instead of opening
+/// a new statement.
 /// Mirrors `handl_runtime::module_prep::segment_continues_item` — see
 /// there for the full rationale; `lines` is the item's accumulated
 /// expression text (one entry per segment piece).

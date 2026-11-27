@@ -57,8 +57,9 @@ pub fn apply_desugar(lang: &Language, ast: &Ast) -> Result<Ast, LangError> {
     }
     // Normalize surface family-record declarations into the internal `data`
     // node the `desugar.data` rule consumes. The parser emits an `alt` of
-    // `assign`s (`A(params) := c0 | c1`, optionally preceded by a stray
-    // `var "data"`); both spellings lower to the same `data` shape here.
+    // `assign`s (`A(params) := c0 | c1`); it lowers to the `data` shape
+    // here. (`X := new Inductive { … }` lowers to `data` at parse time in
+    // the Pratt engine instead.)
     let mut ast = ast.clone();
     normalize_family_records(&mut ast);
     let ast = &ast;
@@ -81,8 +82,8 @@ pub fn normalize_family_records(ast: &mut Ast) {
 
 /// Lower a surface family-record declaration into a `data` node.
 ///
-/// The post-ADR-0158 surface is `A(a : Type) := c0 | c1` (the `data`
-/// keyword is retired but still accepted as a stray leading token). The
+/// The post-ADR-0158 surface is `A(a : Type) := c0 | c1` (`new Inductive`
+/// family records lower to `data` at parse time instead). The
 /// parser represents that as an `alt` whose arms are `assign`s pairing the
 /// type expression with each constructor:
 ///
@@ -113,15 +114,8 @@ fn lower_family_record_decls(ast: &mut Ast) {
         let mut changed = false;
         let mut idx = 0;
         while idx < children.len() {
-            // A retired `data` keyword parses as a bare `var "data"`
-            // statement; drop it when it introduces a family record.
-            let is_data_keyword = children[idx]
-                .as_u64()
-                .and_then(|c| ast.get(AstRef::new(c as usize)))
-                .is_some_and(|n| n.kind == "var" && n.payload.as_str() == Some("data"));
-            let record_at = if is_data_keyword { idx + 1 } else { idx };
             let record = children
-                .get(record_at)
+                .get(idx)
                 .and_then(|v| v.as_u64())
                 .and_then(|c| family_record(ast, c as usize));
             let Some((record_idx, type_idx, ctors)) = record else {
@@ -145,7 +139,7 @@ fn lower_family_record_decls(ast: &mut Ast) {
                 });
             }
             rewritten.push(Value::from(data_idx as u64));
-            idx = record_at + 1;
+            idx += 1;
         }
         if changed {
             if let Some(node) = ast.get_mut(AstRef::new(i)) {
@@ -281,9 +275,11 @@ mod tests {
         ast.push(AstNode::new(kind).with_payload(payload)).index() as u64
     }
 
-    /// `A(a : Type) := c0 | c1` as the parser emits it: a stray `data` token
-    /// (optional), then `alt[assign(type, c0), c1]`.
-    fn record_ast(with_keyword: bool) -> Ast {
+    /// `A(a : Type) := c0 | c1` as the parser emits it: `alt[assign(type,
+    /// c0), c1]`, optionally preceded by an ordinary `var "data"`
+    /// statement (`data` is not a keyword — the var is just along for
+    /// the ride in this fixture).
+    fn record_ast(with_data_var: bool) -> Ast {
         let mut ast = Ast::new();
         let a = push(&mut ast, "var", json!("a"));
         let ty = push(&mut ast, "var", json!("Type"));
@@ -307,16 +303,12 @@ mod tests {
         let c1 = push(&mut ast, "call", json!({"children": [c1name, pannot]}));
         let alt = push(&mut ast, "alt", json!({"children": [arm, c1]}));
         let mut stmts = Vec::new();
-        if with_keyword {
+        if with_data_var {
             stmts.push(push(&mut ast, "var", json!("data")));
         }
         stmts.push(alt);
         push(&mut ast, "block", json!({"children": stmts}));
         ast
-    }
-
-    fn last(ast: &Ast) -> usize {
-        ast.len() - 1
     }
 
     fn only_child(ast: &Ast, block: usize) -> serde_json::Value {
@@ -329,14 +321,23 @@ mod tests {
     }
 
     #[test]
-    fn lowers_multi_ctor_record_with_data_keyword() {
+    fn lowers_multi_ctor_record_with_stray_data_var() {
+        // `data` is no longer a keyword — a stray `var "data"` is an
+        // ordinary statement and is *not* dropped; the family record
+        // after it still lowers to the internal `data` node.
         let mut ast = record_ast(true);
         let block = ast.len() - 1;
         lower_family_record_decls(&mut ast);
-        // The stray `data` token is dropped; one `data` node remains.
         let children = only_child(&ast, block);
-        assert_eq!(children.as_array().unwrap().len(), 1, "{children}");
-        let data_idx = children[0].as_u64().unwrap() as usize;
+        let arr = children.as_array().unwrap();
+        assert_eq!(arr.len(), 2, "{children}");
+        assert_eq!(
+            ast.get(AstRef::new(arr[0].as_u64().unwrap() as usize))
+                .unwrap()
+                .kind,
+            "var"
+        );
+        let data_idx = arr[1].as_u64().unwrap() as usize;
         let node = ast.get(AstRef::new(data_idx)).unwrap();
         assert_eq!(node.kind, "data");
         let kids = node.payload.get("children").unwrap().as_array().unwrap();
