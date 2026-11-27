@@ -1,52 +1,93 @@
---- tests/smoke/effects.hnl — `IO<sig>` effect signatures and `handle`.
---- Driven by `hnl typecheck` (see `ci.sh smoke`).
+--- tests/smoke/effects.hnl — granular effect algebras and `handle`
+--- (PL-0004 G2; design/effects-ambient-modes.md v2 §2-§3). Driven by
+--- `hnl typecheck` (see `ci.sh smoke`).
 ---
---- `IO<sig>` is an indexed former: `sig` is the op-signature record
---- (`IO<{ puts }>` — braces stay inside the `<>` bracket where a sig
---- index needs them). A covered op's sig entry is *replaced* by the
---- handler impl's return type; an uncovered op stays a bare name.
+--- Effects are ambient modes: each operation is its own
+--- `new Algebra { op : A ~> B }` head, `@ [Head, …]` ascribes the
+--- judgement's mode set (`[]` = pure), `perform(Head, arg)` checks
+--- `arg` against the head's declared `op` domain and yields its
+--- codomain, and `handle m with {Head: impl}` is a modality `μ → μ′`
+--- over mode elements — a covered head's payload re-keys to the
+--- impl's return type, uncovered heads keep their elements, and the
+--- residual stays handleable. The `IO<sig>` codomain former and the
+--- `Effects(S)` row algebra are retired.
+---
+--- `Algebra` is still M2's to define (same stub `new_decl.hnl`
+--- carries); the record-family below is enough for `new Algebra`
+--- declarations to elaborate.
+
+Algebra<c : Type> := {
+  mkAlgebra : (compose : c ~> c ~> c, unit : c, order : c ~> c ~> Bool) ~> Algebra
+}
+
+--- One algebra per effect op — the `op` field is the canonical
+--- signature `perform` resolves (design §2). Effect algebras carry
+--- no `compose`/`order`: composition is set union, subsumption set
+--- inclusion.
+PutStr  := new Algebra { op: Str ~> Unit }
+FsRead  := new Algebra { op: Str ~> Str }
+
+--- `requires` — declared implication (design §4.1): `FsWrite`
+--- requires `FsRead`, so `@ [FsWrite]` elaborates to the closure
+--- `{FsWrite, FsRead}` and `perform(FsRead, …)` is permitted.
+FsWrite := new Algebra { op: Str ~> Str, requires: [FsRead] }
 
 --- Signature-only ops still need a body (no `extern`/`declare` surface
 --- yet), so these are self-referencing stubs — they typecheck; applying
---- them diverges. Check-side only.
-export printLn : Str ~> IO<{ puts }> := s ~> printLn(s)
-export readFile : Str ~> IO<{ fs }> := p ~> readFile(p)
-export both : Str ~> IO<{ puts, fs }> := s ~> both(s)
+--- them diverges. Check-side only. The mode ascription attaches to the
+--- whole arrow type, so the `~>` sits inside parens.
+export printLn : (Str ~> Str) @ [PutStr] := s ~> printLn(s)
+export readFile : (Str ~> Str) @ [FsRead] := p ~> readFile(p)
+export both : (Str ~> Str) @ [PutStr, FsRead] := s ~> both(s)
 
-puts_handler : (Str ~> Unit) ~> Unit := req ~> req("handled")
-fs_handler : (Str ~> Str) ~> Str := req ~> req("contents")
+--- Handler impls are plain `A ~> R` functions: the domain accepts the
+--- op's declared `op` domain, the return type re-keys the covered
+--- head's residual payload (`op ↦ ret`, design §3/§4.2).
+puts_impl : Str ~> Str := s ~> s
+fs_impl : Str ~> Str := s ~> s
 
---- Covered: `handle` discharges `puts` — the sig entry becomes the
---- impl's return type (`puts: Unit`); nothing residual.
-handled_print : Str ~> IO<{ puts: Unit }> := handle printLn with {puts: puts_handler}
+--- Covered: `handle` discharges `PutStr` — its residual element's
+--- payload becomes the impl's return type; the head stays in `μ′`
+--- (a second `handle` still sees it).
+handled_print : (Str ~> Str) @ [PutStr] := handle printLn with {PutStr: puts_impl}
+rehandled : (Str ~> Str) @ [PutStr] := handle handled_print with {PutStr: puts_impl}
 
---- Uncovered: handling `puts` out of `{puts, fs}` leaves `fs` as a
---- residual bare op — the covered entry still records `puts: Unit`.
-handled_partial : Str ~> IO<{ puts: Unit, fs }> := handle both with {puts: puts_handler}
+--- Partial coverage: handling `PutStr` out of `{PutStr, FsRead}`
+--- leaves `FsRead` as a residual bare-head element — the covered
+--- head's payload re-keys to the impl's return type.
+handled_partial : (Str ~> Str) @ [PutStr, FsRead] := handle both with {PutStr: puts_impl}
 
 --- Both ops covered.
-handled_full : Str ~> IO<{ puts: Unit, fs: Str }> := handle both with {puts: puts_handler, fs: fs_handler}
+handled_full : (Str ~> Str) @ [PutStr, FsRead] := handle both with {PutStr: puts_impl, FsRead: fs_impl}
 
---- Effect widening accepts: a computation performing only `puts` is a
---- `Str ~> IO<{ puts, fs }>` (the wider sig supplies at least the
---- narrower one's ops).
-widen_ok : Str ~> IO<{ puts, fs }> := s ~> printLn(s)
+--- `>>>` composes ambient modes by set union; an ascription naming
+--- the union accepts the composite (set-inclusion widening — a
+--- computation performing only `PutStr` is a `{PutStr, FsRead}`).
+seqd := readFile >>> printLn
+widen_ok : (Str ~> Str) @ [PutStr, FsRead] := seqd
+var_widen_ok : (Str ~> Str) @ [PutStr, FsRead] := printLn
 
---- `perform(op, arg)` — the `IO<sig>` op-emission builtin (the `io`
---- module's `perform` host fn, reached through the same `call` →
---- `call_host` → module-registry path as `sym.seeded`): it mints
---- `IO<{op: T}>` — `op` is an op *name* (a bare identifier is not a
---- wire), `T` the arg's type. Both spellings check.
-perf_sig : IO<{ puts: Str }> := perform(puts, "hi")
-perf_qualified : IO<{ puts: Str }> := io.perform(puts, "hi")
-perf_string_op : IO<{ fs: Str }> := perform("fs", "path")
+--- `requires` closure at elaboration (design §4.1): `@ [FsWrite]`
+--- permits `perform(FsRead, …)` — `FsRead` is in the closure.
+req_ok : Str @ [FsWrite] := perform(FsRead, "p")
 
---- A `perform`ed op dispatches through `handle` with the same coverage
---- rules as a declared effect: the covered entry takes the impl's
---- declared return type, widening still applies. (A `perform` sig entry
---- is the *payload* type — `Str` for `perform(puts, "hi")` — so the
---- covering impl's domain takes `Str`, unlike the `(Str ~> Unit)`
---- op-type impls the declaration stubs use above.)
-puts_payload_impl : Str ~> Str := s ~> s
-perf_handled : IO<{ puts: Str }> := handle perform(puts, "hi") with {puts: puts_payload_impl}
-perf_widen : IO<{ puts: Str, fs }> := perform(puts, "hi")
+--- `perform(Head, arg)` — the ambient op-emission builtin: `Head`
+--- names a declared effect algebra, `arg` checks against the `op`
+--- domain, the result is the `op` codomain. Both the flat `perform`
+--- and qualified `io.perform` spellings check (the `io` module's
+--- `perform` host fn, reached through the same `call` →
+--- `call_host` → module-registry path as `sym.seeded`).
+perf_puts : Unit @ [PutStr] := perform(PutStr, "hi")
+perf_qualified : Unit @ [PutStr] := io.perform(PutStr, "hi")
+perf_read : Str @ [FsRead] := perform(FsRead, "path")
+--- A string literal op operand names the same head.
+perf_string_op : Str @ [FsRead] := perform("FsRead", "path")
+
+--- A `perform`ed op dispatches through `handle` with the same
+--- coverage rules as an ascribed effect head: the impl's domain
+--- accepts the op's declared domain and its return type re-keys the
+--- residual payload.
+perf_handled : Unit @ [PutStr] := handle perform(PutStr, "hi") with {PutStr: puts_impl}
+--- Under a wider ambient set the same `perform` still checks —
+--- `PutStr` is permitted by `{PutStr, FsRead}`.
+perf_wider : Unit @ [PutStr, FsRead] := perform(PutStr, "hi")
