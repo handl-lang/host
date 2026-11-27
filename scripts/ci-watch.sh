@@ -4,9 +4,10 @@
 #
 # A trigger, not a CI server: no UI, no state beyond the last-seen sha.
 # (For pushes instead of polling, `bupha watch` + bupha.toml does the same
-# thing off the GitHub webhook.) Run it anywhere that has the bupha CLI
-# and the rust toolchain — the pipeline is plain `scripts/ci.sh`, no
-# docker. Logs append to $CI_LOG_FILE.
+# thing off the GitHub webhook.) Run it anywhere that has the bupha CLI,
+# peregrin, and the rust toolchain — the gate is the repo's
+# `workflows/gate.yaml` campaign (`peregrin campaign run`), no docker.
+# Logs append to $CI_LOG_FILE.
 #
 #   scripts/ci-watch.sh                  # poll every 60 s
 #   CI_JOBS=2 ./scripts/ci-watch.sh
@@ -37,6 +38,11 @@ LOG_FILE="${CI_LOG_FILE:-$REPO_DIR/../ci-watch.log}"
 # rebuilds the sibling layout as symlinks next to the worktree.
 WORKTREE_BASE="${CI_WORKTREE_BASE:-$HOME/dagger/worktrees/ci-watch}"
 BUPHA_CFG="${CI_BUPHA_CONFIG:-$REPO_DIR/../ci-watch.bupha.toml}"
+# The gate entry point is the repo's campaign — scripts/gate-run.sh
+# wraps `peregrin campaign run workflows/gate.yaml` and maps the
+# .ci-result.json verdict to an exit code (campaign run itself
+# always exits 0). Never call scripts/ci.sh directly.
+GATE_CMD="bash scripts/gate-run.sh"
 
 log() { printf '[%s] %s\n' "$(date -Is)" "$*" | tee -a "$LOG_FILE"; }
 
@@ -57,14 +63,14 @@ name = "handl-lang/host"
 dir = "$1"
   [repos.runner]
   kind = "script"
-  cmd = "bash scripts/ci.sh ci"
+  cmd = '$GATE_CMD'
 
 [trigger]
 kind = "github"
 
 [runner]
 kind = "script"
-cmd = "bash scripts/ci.sh ci"
+cmd = '$GATE_CMD'
 token_env = "HANDL_TOKEN"
 
 [status]
@@ -103,8 +109,8 @@ run_ci() {
     write_bupha_config "$wt" >/dev/null
     bupha --config "$BUPHA_CFG" run >>"$LOG_FILE" 2>&1 || rc=$?
   else
-    log "bupha not on PATH — running scripts/ci.sh directly"
-    (cd "$wt" && bash scripts/ci.sh ci) >>"$LOG_FILE" 2>&1 || rc=$?
+    log "bupha not on PATH — running the gate campaign directly"
+    (cd "$wt" && eval "$GATE_CMD") >>"$LOG_FILE" 2>&1 || rc=$?
   fi
   if [ "$rc" -eq 0 ]; then
     log "ci PASS ${sha:0:12}"
