@@ -1445,7 +1445,7 @@ do {
       }
     } else {
       do {
-        s := if kind == "dim_arrow" { funcs.bind_pattern_vars_(funcs, s, node_idx) } else { s }
+        s := if kind == "dim_arrow" || kind == "graded_arrow" { funcs.bind_pattern_vars_(funcs, s, node_idx) } else { s }
         rule := lang_type_rule(s, kind)
         if rule == null {
           if is_empty(s.ast) {
@@ -1518,6 +1518,16 @@ do {
       }
     } else {
     dep_tag := if expected == null { "" } else { type_tag(expected) }
+    --- Number-literal → `Nat` elaboration (NBE `check_node`, commit
+    --- 97926d5): a non-negative integer literal checked against a
+    --- parameterless Nat-shaped family reads as the `Succ^k(Zero)`
+    --- index term — `idn(2)` is `idn(Succ(Succ(Zero)))`. Runs before
+    --- `check_dependent_`: its `type.family_app` arm synth+unifies,
+    --- which is exactly the `Number` vs `Nat` mismatch this absorbs.
+    nat_elab := expected != null && funcs.nat_family_expected_(funcs, s, expected) && funcs.nat_literal_node_(funcs, s, node_idx)
+    if nat_elab {
+      { ok: true, state: tc_record_node_type(s, node_idx, expected) }
+    } else {
     is_dep_intro := dep_tag == "type.pi" || dep_tag == "type.sigma" || dep_tag == "type.family" || dep_tag == "type.forall" || dep_tag == "Path" || dep_tag == "type.equiv"
     if is_dep_intro {
       funcs.check_dependent_(funcs, s, node_idx, expected)
@@ -1552,6 +1562,7 @@ do {
           }
         }
       }
+    }
     }
     }
     }
@@ -1671,11 +1682,320 @@ do {
     }
   }
 
+  --- A *typed name binder* `x : T` — a `type-annot` node whose subject
+  --- is a bare `var` (port of NBE `typed_binder`). Returns
+  --- `{name, annot}` — the binder name and its type-expression child
+  --- index — or `null` for anything else (untyped `var`, computed
+  --- subject, non-annot). Shared by the dependent-pair `paren` arm,
+  --- the typed-param `function` arm, and the `IO<…>` sig sugar.
+  typed_binder_ := [funcs, s, node_idx]~> do {
+    n := ast_node(s.ast, node_idx)
+    kind := node_kind(n)
+    subj_role := child_role_index(s, kind, "subject")
+    annot_role := child_role_index(s, kind, "annot")
+    if kind != "type-annot" && annot_role == null {
+      null
+    } else {
+      do {
+        children := node_children(n)
+        si := if subj_role == null { 0 } else { subj_role }
+        ai := if annot_role == null { 1 } else { annot_role }
+        if si >= len(children) || ai >= len(children) {
+          null
+        } else {
+          do {
+            subj := ast_node(s.ast, at(children, si))
+            sp := node_payload(subj)
+            nm := if node_kind(subj) == "var" {
+              if type_of(sp) == "str" { sp } else { get_or(sp, "name", "") }
+            } else {
+              ""
+            }
+            if nm == "" {
+              null
+            } else {
+              { name: nm, annot: at(children, ai) }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  --- `occurs_name` (NBE `dependent.rs`): does the AST subtree at
+  --- `node_idx` mention `name` — a `var` leaf match, recursively
+  --- through children and `payload.body` closure indices. Conservative:
+  --- ignores binder shadowing, which only over-approximates toward the
+  --- dependent reading.
+  occurs_name_ := [funcs, s, node_idx, name]~> do {
+    n := ast_node(s.ast, node_idx)
+    kind := node_kind(n)
+    payload := node_payload(n)
+    p_name := if kind == "var" {
+      if type_of(payload) == "str" { payload } else { if type_of(payload) == "obj" { get_or(payload, "name", "") } else { "" } }
+    } else {
+      ""
+    }
+    if name != "" && p_name == name {
+      true
+    } else {
+      do {
+        children := node_children(n)
+        found := while { result: false, remaining: children } {
+          [st]~> if st.result || is_empty(st.remaining) {
+            { out: st.result }
+          } else {
+            do {
+              hit := funcs.occurs_name_(funcs, s, first_value(st.remaining), name)
+              { state: { result: hit, remaining: drop(st.remaining, 1) } }
+            }
+          }
+        }
+        if found {
+          true
+        } else {
+          do {
+            body_idx := if type_of(payload) == "obj" { get_or(payload, "body", null) } else { null }
+            if type_of(body_idx) == "num" {
+              funcs.occurs_name_(funcs, s, body_idx, name)
+            } else {
+              false
+            }
+          }
+        }
+      }
+    }
+  }
+
+  --- Expand one step of a `body_closure` `rest` chain — the lazy
+  --- binder tail minted by `synth_type_impl_`'s `paren`/`function`
+  --- arms for dependent pairs `(x : A, y : B(…), …)` (`"chain":
+  --- "sigma"`) and typed-param arrows `(x : A, …) ~> C` (`"chain":
+  --- "pi"`; port of NBE `dep_closure_chain`). `s` already binds the
+  --- head binder — the caller applied the outer closure — and each
+  --- `rest` entry's annotation is synthesized *now* so earlier
+  --- binders are in scope.
+  ---
+  --- - `pi`: yields `type.pi{param, body_closure}` per remaining
+  ---   binder; the parent's `body_child_idx` is the shared terminal
+  ---   body (`~>` right-hand side).
+  --- - `sigma`: yields `type.sigma{param, body_closure}` per remaining
+  ---   component; the last entry's annotation IS the final component
+  ---   type (returned directly — sigma chains carry no
+  ---   `body_child_idx`).
+  dep_closure_chain_ := [funcs, s, bc, rest]~> do {
+    head := first_value(rest)
+    hname := get_or(head, "name", "x")
+    hannot := get_or(head, "annot", null)
+    param_r := if hannot == null {
+      { val: funcs.make_type("type.unknown", {}), state: s }
+    } else {
+      funcs.synth_type_(funcs, s, hannot)
+    }
+    chain := get_or(bc, "chain", "sigma")
+    if chain == "pi" {
+      do {
+        closure := set(set(set(set(set({}, "var_name", hname), "rest", drop(rest, 1)), "chain", "pi"), "body_child_idx", get_or(bc, "body_child_idx", null)), "dep", true)
+        { val: funcs.make_type("type.pi", set(set({}, "param", param_r.val), "body_closure", closure)), state: param_r["state"] }
+      }
+    } else {
+      if len(rest) == 1 {
+        { val: param_r.val, state: param_r["state"] }
+      } else {
+        do {
+          closure := set(set(set(set({}, "var_name", hname), "rest", drop(rest, 1)), "chain", "sigma"), "dep", true)
+          { val: funcs.make_type("type.sigma", set(set({}, "param", param_r.val), "body_closure", closure)), state: param_r["state"] }
+        }
+      }
+    }
+  }
+
+  --- Collect `{name, annot}` typed-binder descriptors for every child
+  --- of `children` — `null`-free only when ALL are `typed_binder_`
+  --- hits (the `Option<Vec>` collect of NBE `dep_synth_type`). Returns
+  --- `{binders, ok}`.
+  collect_typed_binders_ := [funcs, s, children]~> while { result: [], ok: true, remaining: children } {
+    [st]~> if is_empty(st.remaining) || !st.ok {
+      { out: { binders: st.result, ok: st.ok } }
+    } else {
+      do {
+        tb := funcs.typed_binder_(funcs, s, first_value(st.remaining))
+        { state: { result: if tb == null { st.result } else { [...st.result, tb] }, ok: st.ok && tb != null, remaining: drop(st.remaining, 1) } }
+      }
+    }
+  }
+
+  --- The `type.array{elements}` product convention shared by the
+  --- `paren` arm's non-dependent fallthrough — each child synthesized
+  --- as a type, state threaded.
+  synth_type_list_ := [funcs, st, children]~> do {
+    acc := while { result: [], state: st, remaining: children } {
+      [w]~> if is_empty(w.remaining) {
+        { out: { elems: w.result, state: w["state"] } }
+      } else {
+        do {
+          t := funcs.synth_type_(funcs, w["state"], first_value(w.remaining))
+          { state: { result: [...w.result, t.val], state: t["state"], remaining: drop(w.remaining, 1) } }
+        }
+      }
+    }
+    { val: funcs.make_type("type.array", set({}, "elements", acc.elems)), state: acc["state"] }
+  }
+
+  --- The `rest` tail + shared-terminal fields of a dependent closure —
+  --- `{name, annot}` entries for every binder after the head, plus
+  --- `body_child_idx` on the `pi` chain (the sigma chain's last
+  --- annotation plays that role through the top-level compat field).
+  binder_rest_ := binders ~> while { result: [], remaining: drop(binders, 1) } {
+    [st]~> if is_empty(st.remaining) {
+      { out: st.result }
+    } else {
+      do {
+        b := first_value(st.remaining)
+        { state: { result: [...st.result, { name: get_or(b, "name", ""), annot: get_or(b, "annot", null) }], remaining: drop(st.remaining, 1) } }
+      }
+    }
+  }
+
+  --- `(x : A, y : B(…), …)` in type position (NBE `dep_synth_type`'s
+  --- `paren` arm): every child a typed name binder AND some later
+  --- annotation mentioning an earlier binder name mints a
+  --- right-nested `type.sigma` chain — the same value
+  --- `Sigma(A, x ~> Sigma(B, y ~> …))` produces; `[w, v]` literals
+  --- check through `check_sigma_intro_`. Non-dependent binder lists
+  --- and mixed/untyped children keep the `type.array{elements}`
+  --- product convention; a single child reads through.
+  synth_paren_type_ := [funcs, st, node_idx]~> do {
+    node := ast_node(st.ast, node_idx)
+    children := node_children(node)
+    n := len(children)
+    if n == 0 {
+      { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(st, "warning", "synth_type: empty paren in type position") }
+    } else {
+      if n == 1 {
+        funcs.synth_type_(funcs, st, first_value(children))
+      } else {
+        do {
+          bl := funcs.collect_typed_binders_(funcs, st, children)
+          if !bl.ok {
+            funcs.synth_type_list_(funcs, st, children)
+          } else {
+            do {
+            --- Dependence: binder `j`'s annotation mentions an earlier
+            --- binder name (conservative — `occurs_name_` ignores
+            --- shadowing, which only over-approximates toward sigma).
+            dep := while { result: false, i: 1 } {
+              [w]~> if w.i >= len(bl.binders) || w.result {
+                { out: w.result }
+              } else {
+                do {
+                  jannot := get_or(at(bl.binders, w.i), "annot", null)
+                  inner := while { result: false, j: 0 } {
+                    [v]~> if v.j >= w.i || v.result {
+                      { out: v.result }
+                    } else {
+                      do {
+                        bn := get_or(at(bl.binders, v.j), "name", "")
+                        hit := if jannot == null { false } else { funcs.occurs_name_(funcs, st, jannot, bn) }
+                        { state: { result: hit, j: v.j + 1 } }
+                      }
+                    }
+                  }
+                  { state: { result: inner, i: w.i + 1 } }
+                }
+              }
+            }
+            if dep {
+              do {
+                b0 := first_value(bl.binders)
+                pr := funcs.synth_type_(funcs, st, get_or(b0, "annot", null))
+                last_b := last(bl.binders)
+                closure := set(set(set(set(set({}, "var_name", get_or(b0, "name", "")), "rest", binder_rest_(bl.binders)), "chain", "sigma"), "body_child_idx", get_or(last_b, "annot", null)), "dep", true)
+                { val: funcs.make_type("type.sigma", set(set({}, "param", pr.val), "body_closure", closure)), state: pr["state"] }
+              }
+            } else {
+              funcs.synth_type_list_(funcs, st, children)
+            }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  --- `(x : A, …) ~> B` / `A ~> B` in type position (NBE `dep_synth_type`'s
+  --- `function` arm): when every parameter is a typed name binder the
+  --- node mints `type.pi` — the domain reads the first binder's
+  --- annotation, the names feed a lazy `body_closure` `rest` chain
+  --- (`"chain": "pi"`), and the body child is the shared codomain.
+  --- Untyped parameters keep the `type.function{param, body}`
+  --- reading — a `paren`-wrapped parameter list takes its LAST child
+  --- as the domain (the `A -> B` convention); any other params node
+  --- IS the domain.
+  synth_function_type_ := [funcs, st, node_idx]~> do {
+    node := ast_node(st.ast, node_idx)
+    children := node_children(node)
+    params_role := child_role_index(st, "function", "params")
+    body_role := child_role_index(st, "function", "body")
+    pi := if params_role == null { 0 } else { params_role }
+    bi := if body_role == null { 1 } else { body_role }
+    if pi >= len(children) || bi >= len(children) {
+      { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(st, "warning", "synth_type: function node missing params/body children") }
+    } else {
+      do {
+        params_idx := at(children, pi)
+        body_idx := at(children, bi)
+        params_node := ast_node(st.ast, params_idx)
+        param_nodes := if node_kind(params_node) == "paren" {
+          node_children(params_node)
+        } else {
+          [params_idx]
+        }
+        bl := funcs.collect_typed_binders_(funcs, st, param_nodes)
+        if bl.ok && !is_empty(bl.binders) {
+          do {
+            b0 := first_value(bl.binders)
+            pr := funcs.synth_type_(funcs, st, get_or(b0, "annot", null))
+            closure := set(set(set(set(set({}, "var_name", get_or(b0, "name", "")), "rest", binder_rest_(bl.binders)), "chain", "pi"), "body_child_idx", body_idx), "dep", true)
+            { val: funcs.make_type("type.pi", set(set({}, "param", pr.val), "body_closure", closure)), state: pr["state"] }
+          }
+        } else {
+          do {
+            dom_idx := if node_kind(params_node) == "paren" {
+              pc := node_children(params_node)
+              if is_empty(pc) { params_idx } else { last(pc) }
+            } else {
+              params_idx
+            }
+            d := funcs.synth_type_(funcs, st, dom_idx)
+            c := funcs.synth_type_(funcs, d["state"], body_idx)
+            { val: funcs.make_type("type.function", set(set({}, "param", d.val), "body", c.val)), state: c["state"] }
+          }
+        }
+      }
+    }
+  }
+
+  --- `x : T` in type position reads as `T` (NBE `dep_synth_type`'s
+  --- `type-annot` arm) — binder nodes inside `paren`/`function`
+  --- parameter lists synthesize through here.
+  synth_type_annot_ := [funcs, st, node_idx]~> do {
+    node := ast_node(st.ast, node_idx)
+    children := node_children(node)
+    annot_role := child_role_index(st, "type-annot", "annot")
+    ai := if annot_role == null { 1 } else { annot_role }
+    if ai >= len(children) {
+      { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(st, "warning", "synth_type: type-annot missing annot child") }
+    } else {
+      funcs.synth_type_(funcs, st, at(children, ai))
+    }
+  }
+
   --- Surface former application `Former(args...)` in annotation position.
   synth_dep_former_ := [funcs, st, node_idx, former_name]~> do {
     node := ast_node(st.ast, node_idx)
     children := node_children(node)
-    args_role := child_role_index(st, "call", "args")
+    args_role := child_role_index(st, node_kind(node), "args")
     if args_role == null || args_role >= len(children) {
       { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(st, "warning", "synth_type: " + former_name + " needs a domain argument") }
     } else {
@@ -1738,7 +2058,7 @@ do {
   synth_path_type_ := [funcs, st, node_idx, former_name]~> do {
     node := ast_node(st.ast, node_idx)
     children := node_children(node)
-    args_role := child_role_index(st, "call", "args")
+    args_role := child_role_index(st, node_kind(node), "args")
     arg_count := if args_role == null { 0 } else { len(children) - args_role }
     interval := funcs.make_type("type.interval", {})
     unknown := funcs.make_type("type.unknown", {})
@@ -1849,10 +2169,21 @@ do {
       if const_body != null {
         { val: const_body, state: bound }
       } else {
-        if body_idx == null {
-          { val: funcs.make_type("type.unknown", {}), state: bound }
+        do {
+        --- Dependent binder chains (`rest` — dependent pairs and
+        --- typed-param arrows): expand one `type.sigma`/`type.pi`
+        --- level per remaining binder inside this binding's scope
+        --- (NBE `dep_closure_apply`'s `rest` arm).
+        rest := get_or(closure, "rest", [])
+        if type_of(rest) == "arr" && !is_empty(rest) {
+          funcs.dep_closure_chain_(funcs, bound, closure, rest)
         } else {
-          funcs.synth_type_(funcs, bound, body_idx)
+          if body_idx == null {
+            { val: funcs.make_type("type.unknown", {}), state: bound }
+          } else {
+            funcs.synth_type_(funcs, bound, body_idx)
+          }
+        }
         }
       }
     }
@@ -1929,10 +2260,20 @@ do {
         old_results := get_or(t0["state"], "results", {})
         extended := if var_name == "" { t0["state"] } else { tc_extend(t0["state"], var_name, t0.typ) }
         bound := if var_name == "" { extended } else { tc_bind_result(extended, var_name, funcs.node_term_(funcs, t0["state"], e0)) }
-        body_result := if body_idx == null {
-          { val: funcs.make_type("type.unknown", {}), state: bound }
+        --- `rest` chains (dependent pairs `(x : A, y : B(…), …)`):
+        --- the residual is one `type.sigma` level per remaining
+        --- binder — or the last binder's annotation directly —
+        --- synthesized under this binding (NBE `dep_intro_sigma` →
+        --- `dep_closure_apply_term` → `dep_closure_chain`).
+        rest := get_or(closure, "rest", [])
+        body_result := if type_of(rest) == "arr" && !is_empty(rest) {
+          funcs.dep_closure_chain_(funcs, bound, closure, rest)
         } else {
-          funcs.synth_type_(funcs, bound, body_idx)
+          if body_idx == null {
+            { val: funcs.make_type("type.unknown", {}), state: bound }
+          } else {
+            funcs.synth_type_(funcs, bound, body_idx)
+          }
         }
         c1 := funcs.check_node_(funcs, body_result["state"], e1, body_result.val)
         restored := set(tc_restore(c1["state"], mark), "results", old_results)
@@ -1998,6 +2339,145 @@ do {
       }
     }
     { ok: walk.ok, state: walk["state"] }
+  }
+
+  --- `nat_literal_node` (NBE `dependent.rs`): a `value`/`lit` node
+  --- whose payload is a non-negative *integer* — `paren`-transparent.
+  --- This is the surface spelling of a `Succ^k(Zero)` index term:
+  --- `idn(2)` elaborates exactly like `idn(Succ(Succ(Zero)))`.
+  --- Fractionals and negatives keep the ordinary `Number` typing.
+  nat_literal_node_ := [funcs, s, node_idx]~> do {
+    n := ast_node(s.ast, node_idx)
+    kind := node_kind(n)
+    if kind == "value" || kind == "lit" {
+      do {
+        p := node_payload(n)
+        --- `{"value": x}` literal-payload envelope unwraps; a tagged
+        --- or scalar payload reads as itself (NBE
+        --- `literal_payload_num`).
+        raw := if is_obj(p) { get_or(p, "value", null) } else { p }
+        type_of(raw) == "num" && raw >= 0 && raw % 1 == 0
+      }
+    } else {
+      if kind == "paren" {
+        do {
+          ch := node_children(n)
+          if is_empty(ch) { false } else { funcs.nat_literal_node_(funcs, s, first_value(ch)) }
+        }
+      } else {
+        false
+      }
+    }
+  }
+
+  --- `node_name` (NBE `dependent.rs`): the payload's string or
+  --- `name` field — `""` when neither.
+  ast_node_name_ := [funcs, s, node_idx]~> do {
+    n := ast_node(s.ast, node_idx)
+    p := node_payload(n)
+    if type_of(p) == "str" { p } else { get_or(p, "name", "") }
+  }
+
+  --- `result_is_self` — a ctor spec's result annotation names the
+  --- family itself: absent (`C` unannotated), a `var` spelling `F`,
+  --- or a headed form `F(…)` whose first child names `F` (NBE
+  --- `synth_data`'s `result_is_self`).
+  ctor_result_self_ := [funcs, s, spec, gname]~> do {
+    ri := get_or(spec, "result", null)
+    if ri == null {
+      true
+    } else {
+      do {
+        rn := ast_node(s.ast, ri)
+        if node_kind(rn) == "var" {
+          funcs.ast_node_name_(funcs, s, ri) == gname
+        } else {
+          do {
+            rch := node_children(rn)
+            if is_empty(rch) {
+              false
+            } else {
+              funcs.ast_node_name_(funcs, s, first_value(rch)) == gname
+            }
+          }
+        }
+      }
+    }
+  }
+
+  --- `nat_shaped_family` (NBE `dependent.rs`): every ctor of family
+  --- `g` carries a Nat-former index projection — a successor step
+  --- (one argument whose domain names `g`, result `g`/`g(…)`/absent)
+  --- or the bare base (no arguments, self result). Mirrors the
+  --- `ctor_proj` census NBE's `synth_data` performs: ≥1 successor,
+  --- ≤1 bare, nothing else — `data Nat :: Zero | Succ(pred : Nat)`
+  --- is the exemplar; the test reads declared specs, never the name.
+  nat_shaped_family_ := [funcs, s, gname]~> do {
+    gamma := get_or(s, "gamma", [])
+    ctors := while { result: [], remaining: gamma } {
+      [st]~> if is_empty(st.remaining) {
+        { out: st.result }
+      } else {
+        do {
+          entry := first_value(st.remaining)
+          et := if type_of(entry) == "obj" { get_or(entry, "type", null) } else { null }
+          hit := type_tag(et) == "type.ctor_sig" && get_or(et, "family", "") == gname
+          { state: { result: if hit { [...st.result, et] } else { st.result }, remaining: drop(st.remaining, 1) } }
+        }
+      }
+    }
+    if is_empty(ctors) {
+      false
+    } else {
+      do {
+        census := while { succ: 0, bare: 0, other: 0, remaining: ctors } {
+          [st]~> if is_empty(st.remaining) {
+            { out: { succ: st.succ, bare: st.bare, other: st.other } }
+          } else {
+            do {
+              spec := first_value(st.remaining)
+              args := get_or(spec, "args", [])
+              self_res := funcs.ctor_result_self_(funcs, s, spec, gname)
+              dom_self := if len(args) == 1 {
+                do {
+                  a0 := first_value(args)
+                  an := get_or(a0, "node", null)
+                  if an == null { false } else { funcs.ast_node_name_(funcs, s, an) == gname }
+                }
+              } else {
+                false
+              }
+              is_succ := self_res && len(args) == 1 && dom_self
+              is_bare := self_res && is_empty(args)
+              { state: { succ: st.succ + (if is_succ { 1 } else { 0 }), bare: st.bare + (if is_bare { 1 } else { 0 }), other: st.other + (if is_succ || is_bare { 0 } else { 1 }), remaining: drop(st.remaining, 1) } }
+            }
+          }
+        }
+        census.succ >= 1 && census.bare <= 1 && census.other == 0
+      }
+    }
+  }
+
+  --- `nat_family_expected` (NBE `dependent.rs`): the zonked expected
+  --- type is a *parameterless* Nat-shaped family — `type.family_app`/
+  --- `type.family` naming a `nat_shaped_family` family with no index
+  --- arguments. Only there is the literal's elaborated type
+  --- index-independent (`Zero` and every `Succ^k(Zero)` share the
+  --- same `F`), so `2` reads as `Succ²(Zero)` with no
+  --- index-unification obligation.
+  nat_family_expected_ := [funcs, s, expected]~> do {
+    ez := zonk(zonk, expected, get_or(s, "metas", []))
+    tag := type_tag(ez)
+    info := if tag == "type.family_app" {
+      { name: get_or(ez, "name", ""), n: len(get_or(ez, "args", [])) }
+    } else {
+      if tag == "type.family" {
+        { name: get_or(ez, "name", ""), n: len(get_or(get_or(ez, "base", {}), "elements", [])) }
+      } else {
+        { name: "", n: -1 }
+      }
+    }
+    info.n == 0 && info.name != "" && funcs.nat_shaped_family_(funcs, s, info.name)
   }
 
   --- Dispatch on the expected dependent former (ADR-0120 Phase 4).
@@ -2254,10 +2734,62 @@ do {
         funcs.unify_equiv_record_(funcs, eq_t, rec_t, s)
       }
     } else {
+    if tag_a == "type.io" && tag_b == "type.io" {
+      --- `IO(s) <: IO(s')` — signature subtyping (record-width on the
+      --- sig index; NBE `dep_unify`'s `io_headed` arm → `subtype`'s
+      --- `Former{type.io}` case): `s'` must name at least the ops
+      --- `s` does, field values comparing by conversion. An arity-0
+      --- EXPECTED (`IO` bare / `IO()` = `IO(⊤)`, no `sig` field)
+      --- accepts any signature; an arity-0 ACTUAL is ⊤ itself and
+      --- only satisfies ⊤.
+      do {
+        sig_a := get_or(a, "sig", null)
+        sig_b := get_or(b, "sig", null)
+        if sig_b == null {
+          { ok: true, state: s }
+        } else {
+        if sig_a == null {
+          { ok: false, state: tc_add_diagnostic(s, "error", "type mismatch: IO(⊤) does not satisfy IO with a signature") }
+        } else {
+          a_obj := type_of(sig_a) == "obj" && type_tag(sig_a) == ""
+          b_obj := type_of(sig_b) == "obj" && type_tag(sig_b) == ""
+          if !a_obj || !b_obj {
+            --- Non-record sigs compare by conversion (NBE
+            --- `sig_width_subtype`'s fallback).
+            do {
+              u := unify(funcs, sig_a, sig_b, s.metas)
+              { ok: u.ok, state: set(s, "metas", u.metas) }
+            }
+          } else {
+            walk := while { state: s, ok: true, remaining: keys(sig_a) } {
+              [w]~> if is_empty(w.remaining) || !w.ok {
+                { out: { ok: w.ok, state: w["state"] } }
+              } else {
+                do {
+                  k := first_value(w.remaining)
+                  vb := get_or(sig_b, k, null)
+                  if vb == null {
+                    { state: { state: tc_add_diagnostic(w["state"], "error", "type mismatch: IO signature is missing op '" + k + "'"), ok: false, remaining: drop(w.remaining, 1) } }
+                  } else {
+                    do {
+                      u := unify(funcs, get_or(sig_a, k, null), vb, w["state"].metas)
+                      { state: { state: set(w["state"], "metas", u.metas), ok: u.ok, remaining: drop(w.remaining, 1) } }
+                    }
+                  }
+                }
+              }
+            }
+            walk
+          }
+        }
+        }
+      }
+    } else {
       do {
         u := unify(funcs, a, b, s.metas)
         { ok: u.ok, state: set(s, "metas", u.metas) }
       }
+    }
     }
     }
     }
@@ -2367,10 +2899,10 @@ do {
   data_params_from_ := [s, type_idx]~> do {
     n := ast_node(s.ast, type_idx)
     kind := node_kind(n)
-    if kind == "call" {
+    if kind == "call" || kind == "index_app" || kind == "dimension" {
       do {
         children := node_children(n)
-        args_role := child_role_index(s, "call", "args")
+        args_role := child_role_index(s, kind, "args")
         if args_role == null {
           []
         } else {
@@ -2714,7 +3246,7 @@ do {
   --- ------------------------------------------------------------------
   --- Globular boundaries for `a >>>[k] b` (ADR-0120 Phase 2 follow-up).
   ---
-  --- A morphism type `A ~[N]~> B` synthesizes `Arrow{inputs, grade,
+  --- A morphism type `A ~>[N] B` synthesizes `Arrow{inputs, grade,
   --- output, dim}` (`synth_dim_arrow`): an n-cell whose top (n-1)-
   --- boundaries are the *types* of the endpoint expressions —
   --- `inputs` is `src_{n-1}`, `output` is `tgt_{n-1}`, and `dim` is the
@@ -4988,7 +5520,7 @@ do {
   synth_equiv_former_ := [funcs, st, node_idx]~> do {
     node := ast_node(st.ast, node_idx)
     children := node_children(node)
-    args_role := child_role_index(st, "call", "args")
+    args_role := child_role_index(st, node_kind(node), "args")
     n_args := if args_role == null { 0 } else { len(children) - args_role }
     if n_args != 2 {
       { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(st, "warning", "synth_type: Equiv needs a domain and a codomain — Equiv(A, B)") }
@@ -5316,7 +5848,7 @@ do {
   synth_type_call_cubical_ := [funcs, st, node_idx, callee_name]~> do {
     node := ast_node(st.ast, node_idx)
     children := node_children(node)
-    args_role := child_role_index(st, "call", "args")
+    args_role := child_role_index(st, node_kind(node), "args")
     n_args := if args_role == null { 0 } else { len(children) - args_role }
     if callee_name == "Glue" {
       if n_args != 3 {
@@ -5377,6 +5909,238 @@ do {
       }
       }
     }
+  }
+
+  --- The op-signature record of an `IO(…)` argument (port of NBE
+  --- `io_sig`): an `object` literal reads its `entries` payload
+  --- (`{key, value}` — a numeric `value` is a child index to
+  --- synthesize as a type, anything else is kept verbatim) or, when
+  --- that yields nothing, its `entry`/`var` children (`{ puts }`
+  --- declares the op with an unstated request — `type.unknown`);
+  --- a `block` of `type-annot` children reads each `op : T` pair.
+  --- Anything else is an index/term position — literals and
+  --- arithmetic evaluate, the rest synthesize as a type.
+  io_sig_ := [funcs, st, arg_idx]~> do {
+    n := ast_node(st.ast, arg_idx)
+    kind := node_kind(n)
+    if kind == "object" {
+      do {
+        payload := node_payload(n)
+        raw_entries := if type_of(payload) == "obj" { get_or(payload, "entries", []) } else { [] }
+        --- `entries` is an array of `{key, value}` on hand-built
+        --- ASTs; a parsed object may carry a plain map instead — only
+        --- the array form drives the record walk (`is_empty`/`first`
+        --- `match` on a non-list would fault).
+        entries := if type_of(raw_entries) == "arr" { raw_entries } else { [] }
+        m := while { sig: {}, state: st, remaining: entries } {
+          [w]~> if is_empty(w.remaining) {
+            { out: { sig: w.sig, state: w["state"] } }
+          } else {
+            do {
+              e := first_value(w.remaining)
+              k := get_or(e, "key", "")
+              v := get_or(e, "value", null)
+              step := if type_of(v) == "num" {
+                do {
+                  t := funcs.synth_type_(funcs, w["state"], v)
+                  { sig: set(w.sig, k, t.val), state: t["state"] }
+                }
+              } else {
+                { sig: if v == null { w.sig } else { set(w.sig, k, v) }, state: w["state"] }
+              }
+              { state: { sig: step.sig, state: step["state"], remaining: drop(w.remaining, 1) } }
+            }
+          }
+        }
+        if len(keys(m.sig)) > 0 {
+          { val: m.sig, state: m["state"] }
+        } else {
+          --- children fallback: `entry` nodes (`key : value`) and
+          --- bare `var` children (`{ puts }` → `type.unknown`).
+          do {
+            children := node_children(n)
+            cm := while { sig: {}, state: st, remaining: children } {
+              [w]~> if is_empty(w.remaining) {
+                { out: { sig: w.sig, state: w["state"] } }
+              } else {
+                do {
+                  e_idx := first_value(w.remaining)
+                  e_node := ast_node(w["state"].ast, e_idx)
+                  e_kind := node_kind(e_node)
+                  step := if e_kind == "var" {
+                    do {
+                      ep := node_payload(e_node)
+                      nm := if type_of(ep) == "str" { ep } else { get_or(ep, "name", "") }
+                      { sig: set(w.sig, nm, funcs.make_type("type.unknown", {})), state: w["state"] }
+                    }
+                  } else {
+                    if e_kind == "entry" {
+                      do {
+                        e_children := node_children(e_node)
+                        if len(e_children) < 2 {
+                          { sig: w.sig, state: w["state"] }
+                        } else {
+                          do {
+                            k_node := ast_node(w["state"].ast, first_value(e_children))
+                            kp := node_payload(k_node)
+                            k := if type_of(kp) == "str" { kp } else { get_or(kp, "name", get_or(kp, "value", "")) }
+                            v_idx := at(e_children, 1)
+                            t := funcs.synth_type_(funcs, w["state"], v_idx)
+                            { sig: set(w.sig, k, t.val), state: t["state"] }
+                          }
+                        }
+                      }
+                    } else {
+                      { sig: w.sig, state: w["state"] }
+                    }
+                  }
+                  { state: { sig: step.sig, state: step["state"], remaining: drop(w.remaining, 1) } }
+                }
+              }
+            }
+            if len(keys(cm.sig)) == 0 {
+              funcs.io_sig_fallback_(funcs, st, arg_idx)
+            } else {
+              { val: cm.sig, state: cm["state"] }
+            }
+          }
+        }
+      }
+    } else {
+      if kind == "block" {
+        --- Object-literal blocks (ADR-0079): `{ op: T, … }` in a
+        --- block position parses as `type-annot` children — each
+        --- reads as an `entry` (subject → op name, annot → sig type).
+        do {
+          children := node_children(n)
+          bm := while { sig: {}, state: st, remaining: children } {
+            [w]~> if is_empty(w.remaining) {
+              { out: { sig: w.sig, state: w["state"] } }
+            } else {
+              do {
+                t_idx := first_value(w.remaining)
+                t_node := ast_node(w["state"].ast, t_idx)
+                step := if node_kind(t_node) == "type-annot" {
+                  do {
+                    t_children := node_children(t_node)
+                    if len(t_children) < 2 {
+                      { sig: w.sig, state: w["state"] }
+                    } else {
+                      do {
+                        k_node := ast_node(w["state"].ast, first_value(t_children))
+                        kp := node_payload(k_node)
+                        k := if type_of(kp) == "str" { kp } else { get_or(kp, "name", get_or(kp, "value", "")) }
+                        v_idx := at(t_children, 1)
+                        t := funcs.synth_type_(funcs, w["state"], v_idx)
+                        { sig: set(w.sig, k, t.val), state: t["state"] }
+                      }
+                    }
+                  }
+                } else {
+                  { sig: w.sig, state: w["state"] }
+                }
+                { state: { sig: step.sig, state: step["state"], remaining: drop(w.remaining, 1) } }
+              }
+            }
+          }
+          if len(keys(bm.sig)) == 0 {
+            funcs.io_sig_fallback_(funcs, st, arg_idx)
+          } else {
+            { val: bm.sig, state: bm["state"] }
+          }
+        }
+      } else {
+        funcs.io_sig_fallback_(funcs, st, arg_idx)
+      }
+    }
+  }
+  --- `io_sig_`'s non-record fallback (NBE `node_index_or_type`):
+  --- literals and `binary.*`/`unary.*` nodes are index *terms* —
+  --- evaluated; anything else synthesizes as a type (a `var` bound in
+  --- `results` evaluates to its bound record through `synth_type_`'s
+  --- bound-callee path).
+  io_sig_fallback_ := [funcs, st, arg_idx]~> do {
+    n := ast_node(st.ast, arg_idx)
+    kind := node_kind(n)
+    if kind == "value" || kind == "lit" || kind == "binary.add" || kind == "binary.sub" || kind == "binary.mul" || kind == "binary.div" || kind == "binary.mod" || kind == "unary.neg" || kind == "unary.not" {
+      funcs.eval_node_(funcs, st, arg_idx)
+    } else {
+      funcs.synth_type_(funcs, st, arg_idx)
+    }
+  }
+
+  --- `IO(sig)` / `IO<ops…>` — the typed-effect former (ADR-0153 §4;
+  --- port of NBE `dep_synth_call_type`'s `IO` arm). Mints
+  --- `type.io{sig}` where `sig` is the op-signature record.
+  --- `IO()` is `IO(⊤)` — an empty sig.
+  ---
+  --- The brace-free `IO<puts>` / `IO<puts: Unit, fs>` spelling — a
+  --- `dimension` node's argument list — is the same sig-record
+  --- sugar: each arg is an expression position there, a bare `var`
+  --- declares an op with an unstated request and `name : T` its
+  --- payload. The sugar fires only when EVERY argument is a bare
+  --- name or typed binder; anything else keeps the single-sig-
+  --- argument reading. Call-form `IO(s)` is untouched — a bare
+  --- variable there is a sig-typed *index*, not an op list.
+  synth_io_type_ := [funcs, st, node_idx]~> do {
+    node := ast_node(st.ast, node_idx)
+    kind := node_kind(node)
+    children := node_children(node)
+    args_role := child_role_index(st, kind, "args")
+    arg_indices := if args_role == null { [] } else { slice(children, args_role, len(children) - args_role) }
+    sugar_ok := while { result: true, remaining: arg_indices } {
+      [w]~> if !w.result || is_empty(w.remaining) {
+        { out: w.result }
+      } else {
+        do {
+          ai := first_value(w.remaining)
+          an := ast_node(st.ast, ai)
+          one_ok := node_kind(an) == "var" || funcs.typed_binder_(funcs, st, ai) != null
+          { state: { result: one_ok, remaining: drop(w.remaining, 1) } }
+        }
+      }
+    }
+    sig_res := if kind == "dimension" && !is_empty(arg_indices) && sugar_ok {
+      --- Sig-record sugar: `{op: T, …}` built from the argument
+      --- list — typed binders synthesize their annotation, bare
+      --- vars declare `type.unknown`.
+      while { sig: {}, state: st, remaining: arg_indices } {
+        [w]~> if is_empty(w.remaining) {
+          { out: { sig: w.sig, state: w["state"] } }
+        } else {
+          do {
+            ai := first_value(w.remaining)
+            tb := funcs.typed_binder_(funcs, w["state"], ai)
+            step := if tb != null {
+              do {
+                t := funcs.synth_type_(funcs, w["state"], get_or(tb, "annot", null))
+                { sig: set(w.sig, get_or(tb, "name", ""), t.val), state: t["state"] }
+              }
+            } else {
+              do {
+                an := ast_node(w["state"].ast, ai)
+                ap := node_payload(an)
+                nm := if type_of(ap) == "str" { ap } else { get_or(ap, "name", "") }
+                { sig: set(w.sig, nm, funcs.make_type("type.unknown", {})), state: w["state"] }
+              }
+            }
+            { state: { sig: step.sig, state: step["state"], remaining: drop(w.remaining, 1) } }
+          }
+        }
+      }
+    } else {
+      if is_empty(arg_indices) {
+        { sig: {}, state: st }
+      } else {
+        do {
+          r := funcs.io_sig_(funcs, st, first_value(arg_indices))
+          { sig: r.val, state: r["state"] }
+        }
+      }
+    }
+    --- `IO()` is `IO(⊤)` — the arity-0 former carries NO `sig` field
+    --- (NBE `Former{type.io, args: []}`), distinct from `IO({})`.
+    { val: if is_empty(arg_indices) { funcs.make_type("type.io", {}) } else { funcs.make_type("type.io", set({}, "sig", sig_res.sig)) }, state: sig_res["state"] }
   }
 
   --- Pattern binding collection for match arms ---
@@ -7061,7 +7825,7 @@ do {
         }
       }
     },
-    --- `synth_dim_arrow` — N-dimensional arrow `A ~[N]~> B`
+    --- `synth_dim_arrow` — N-dimensional arrow `A ~>[N] B`
     --- (ADR-0119/0120). The same `Arrow{inputs, grade, output}` record
     --- the old `construct` scheme produced, plus `dim` carrying the
     --- literal bracket dimension so `cell_boundary_` can project
@@ -7091,6 +7855,31 @@ do {
           grade_result := funcs.synth_node_(funcs, src_result["state"], dim_idx)
           tgt_result := funcs.synth_node_(funcs, grade_result["state"], at(children, 2))
           { val: funcs.make_type("Arrow", set(set(set(set({}, "inputs", src_result.typ), "grade", grade_result.typ), "output", tgt_result.typ), "dim", dim_lit)), state: tgt_result["state"] }
+        }
+      }
+    },
+    --- `synth_graded_arrow` — graded arrow `A ~>[G] B`
+    --- (graded-arrows.md §4 P1). The same `Arrow{inputs, grade,
+    --- output}` record as `synth_dim_arrow` — the `grade` field holds
+    --- the *type* of the grade child (the middle child's type, the
+    --- `dim_arrow` convention) — but `dim` is the literal `1`: a graded
+    --- arrow is a 1-cell with an annotation, so `cell_boundary_`/
+    --- `cell_paste_` treat it as an ordinary 1-cell and the grade never
+    --- enters the dimension channel (ADR-0153 §6). The grade child is
+    --- synthesized like any expression — well-formedness only (names
+    --- resolve, constructors elaborate); grade constraint enforcement
+    --- is deferred.
+    "synth_graded_arrow": do {
+      node := ast_node(s.ast, node_idx)
+      children := node_children(node)
+      if len(children) < 3 {
+        { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(s, "error", "graded_arrow: missing operands") }
+      } else {
+        do {
+          src_result := funcs.synth_node_(funcs, s, first_value(children))
+          grade_result := funcs.synth_node_(funcs, src_result["state"], at(children, 1))
+          tgt_result := funcs.synth_node_(funcs, grade_result["state"], at(children, 2))
+          { val: funcs.make_type("Arrow", set(set(set(set({}, "inputs", src_result.typ), "grade", grade_result.typ), "output", tgt_result.typ), "dim", 1)), state: tgt_result["state"] }
         }
       }
     },
@@ -7299,6 +8088,13 @@ do {
                   --- closures — no new term shape.
                   { val: funcs.make_type("type.interval", {}), state: st }
                 } else {
+                if name == "IO" {
+                  --- Bare `IO` = `IO(⊤)` — the arity-0 effect type
+                  --- (NBE `dep_synth_var_type`'s `IO` arm); `IO(sig)`
+                  --- applications mint `type.io{sig}` through the
+                  --- `call`/`dimension` arm (`synth_io_type_`).
+                  { val: funcs.make_type("type.io", {}), state: st }
+                } else {
                 if name == "String" || name == "Str" {
                   { val: funcs.make_type("type.string", {}), state: st }
                 } else {
@@ -7358,6 +8154,7 @@ do {
         }
           }
           }
+          }
       }
       } else {
         if kind == "field-access" {
@@ -7407,9 +8204,14 @@ do {
             }
           }
         } else {
-          if kind == "call" {
+          if kind == "call" || kind == "index_app" || kind == "dimension" {
             do {
-              callee_role := child_role_index(st, kind, "callee")
+              --- `call`/`index_app` carry the callee in role `callee`;
+              --- `dimension` (`F<i⃗>`/`IO<ops>`) carries it in `target`
+              --- — same `[head, args…]` layout either way (NBE
+              --- `dep_synth_type`'s unified call arm).
+              callee_role_c := child_role_index(st, kind, "callee")
+              callee_role := if callee_role_c == null { child_role_index(st, kind, "target") } else { callee_role_c }
               args_role := child_role_index(st, kind, "args")
               if callee_role == null || args_role == null {
                 { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(st, "warning", "synth_type: call missing callee/args role") }
@@ -7481,6 +8283,16 @@ do {
                     --- `synth_type_call_cubical_`.
                     funcs.synth_type_call_cubical_(funcs, st, node_idx, callee_name)
                   } else {
+                  if callee_name == "IO" {
+                    --- `IO(sig)` / `IO<ops…>` — the typed-effect
+                    --- former (ADR-0153 §4): mints `type.io{sig}`.
+                    --- The brace-free `IO<puts>`/`IO<puts: T, fs>`
+                    --- spelling is a `dimension` node's argument
+                    --- list — sig-record sugar; call-form
+                    --- `IO(s)`/`IO({…})` reads its first argument
+                    --- through `io_sig_`. See `synth_io_type_`.
+                    funcs.synth_io_type_(funcs, st, node_idx)
+                  } else {
                   if bound_callee != null {
                     funcs.eval_node_(funcs, st, node_idx)
                   } else {
@@ -7547,6 +8359,7 @@ do {
             }
             }
             }
+            }
           } else {
             if kind == "glue" {
               --- `glue A, φ, T̂` in annotation position (ADR-0208
@@ -7574,14 +8387,38 @@ do {
                 }
               }
             } else {
+            if kind == "paren" {
+              --- `(x : A, y : B(…), …)` — dependent pair when a later
+              --- binder's annotation mentions an earlier name, else
+              --- the `type.array{elements}` product convention (NBE
+              --- `dep_synth_type`'s `paren` arm — see
+              --- `synth_paren_type_`).
+              funcs.synth_paren_type_(funcs, st, node_idx)
+            } else {
+            if kind == "type-annot" {
+              --- `x : T` in type position reads as `T` — the binder
+              --- nodes inside `paren`/`function` parameter lists
+              --- synthesize through here.
+              funcs.synth_type_annot_(funcs, st, node_idx)
+            } else {
+            if kind == "function" {
+              --- `(x : A, …) ~> B` typed-param arrow → `type.pi`
+              --- with a `rest`-chain `body_closure`; untyped params
+              --- keep `type.function` (NBE `dep_synth_type`'s
+              --- `function` arm — see `synth_function_type_`).
+              funcs.synth_function_type_(funcs, st, node_idx)
+            } else {
             do {
               left_role := child_role_index(st, kind, "left")
-              is_evaluable := kind == "paren" || kind == "if" || kind == "array" || left_role != null
+              is_evaluable := kind == "if" || kind == "array" || left_role != null
               if is_evaluable {
                 funcs.eval_node_(funcs, st, node_idx)
               } else {
                 { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(st, "warning", "synth_type: unsupported annotation kind: " + kind) }
               }
+            }
+            }
+            }
             }
             }
             }
@@ -8199,6 +9036,15 @@ do {
     eval_node_: eval_node_,
     function_params_: function_params_,
     dep_closure_from_: dep_closure_from_,
+    dep_closure_chain_: dep_closure_chain_,
+    typed_binder_: typed_binder_,
+    occurs_name_: occurs_name_,
+    collect_typed_binders_: collect_typed_binders_,
+    synth_type_list_: synth_type_list_,
+    binder_rest_: binder_rest_,
+    synth_paren_type_: synth_paren_type_,
+    synth_function_type_: synth_function_type_,
+    synth_type_annot_: synth_type_annot_,
     synth_dep_former_: synth_dep_former_,
     synth_path_type_: synth_path_type_,
     apply_dep_closure_: apply_dep_closure_,
@@ -8207,6 +9053,11 @@ do {
     check_sigma_intro_: check_sigma_intro_,
     check_family_arrow_: check_family_arrow_,
     check_dependent_: check_dependent_,
+    nat_literal_node_: nat_literal_node_,
+    ast_node_name_: ast_node_name_,
+    ctor_result_self_: ctor_result_self_,
+    nat_shaped_family_: nat_shaped_family_,
+    nat_family_expected_: nat_family_expected_,
     check_dependent_fallback_: check_dependent_fallback_,
     unify_dependent_: unify_dependent_,
     unify_fn_pi_: unify_fn_pi_,
@@ -8239,6 +9090,9 @@ do {
     synth_fibrant_former_: synth_fibrant_former_,
     synth_fibrant_: synth_fibrant_,
     synth_type_call_cubical_: synth_type_call_cubical_,
+    io_sig_: io_sig_,
+    io_sig_fallback_: io_sig_fallback_,
+    synth_io_type_: synth_io_type_,
     is_univalence_form_: is_univalence_form_,
     arrow_dom_cod_: arrow_dom_cod_,
     equiv_field_value_: equiv_field_value_,
