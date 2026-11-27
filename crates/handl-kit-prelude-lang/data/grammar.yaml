@@ -120,7 +120,7 @@
 # (PL-0004 E1; design/effects-ambient-modes.md §1). The judgement
 # suffix `Γ ⊢ t : A @ μ`: child 0 is the type/subject expression,
 # child 1 the mode expression — the bracketed set
-# `@ [Effects(S), Cost(3)]`, a bare `Algebra(payload)` call, a mode
+# `@ [PutStr, Cost(3)]`, a bare `Algebra(payload)` call, a mode
 # variable (`@ m`, E3), or `[]` (pure). `lbp` 13 keeps `@` inside the
 # `:` annotation's right operand (rbp 9) and inside `~>`'s; the right
 # operand parses at rbp 90 — a postfix-level mode expression (call,
@@ -521,8 +521,8 @@
 # a `dimension` node `[target, args…]`; whitespace inside the brackets is
 # application (`Vec<Succ n, a>` ⇒ `dimension(Vec, call(Succ, n), a)`) and a
 # trailing `:` wraps a sorted binder (`f<a, ev : Eq(a)>`). Record braces
-# stay inside the bracket where a sig index needs them
-# (`IO<{ puts: T }>`). See `ast.dimension`/`ast.index_app` in ast.yaml.
+# stay inside the bracket where an index payload needs them
+# (`F<{ k: V }>`). See `ast.dimension`/`ast.index_app` in ast.yaml.
 # `match` supports an optional `return ... with` motive clause and produces a
 # `match` node with 2 or 3 children: [scrutinee, (motive,) arms]. Surface forms:
 #   match scrutinee { arms }

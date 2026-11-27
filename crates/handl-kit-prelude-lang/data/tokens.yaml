@@ -311,7 +311,7 @@
 - id: token.at
   label: "@"
   category: operator
-  doc: "**Ambient mode ascription** `T @ [Algebra(payload), …]`\n\n```\n`f` : (`A` ~> `B`) @ [`Effects`(`S`)]\n```\n\nJudgement suffix `Γ ⊢ t : A @ μ` — `μ` is a set of applications of declared mode algebras (`[]` is pure)."
+  doc: "**Ambient mode ascription** `T @ [Algebra(payload), …]`\n\n```\n`f` : (`A` ~> `B`) @ [`PutStr`, `Cost`(`3`)]\n```\n\nJudgement suffix `Γ ⊢ t : A @ μ` — `μ` is a set of applications of declared mode algebras (`[]` is pure)."
 - id: token.sharp
   label: "#"
   category: operator

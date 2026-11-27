@@ -428,7 +428,7 @@
 # index-position `<>`). A dimension IS an index: this one node now carries
 # both the `f<d>` dimension-app reading (ADR-0106 §11/§12) and the former
 # `{…}` index-application/index-binder surface (`Vec<n, a>`,
-# `IO<{ puts: T }>`, `f<a, ev : Eq(a)>` sorted binders).
+# `F<{ k: V }>`, `f<a, ev : Eq(a)>` sorted binders).
 #
 # The canonical surface writes the specialization brackets adjacent to a
 # name-like target (`f<a>`, `Vec<n, a>`, `f<(a >>> b)>`) so they are

@@ -2098,11 +2098,13 @@
     source: Judgment
   # `check_call` — the same directed check (synth the callee, check the
   # first argument against its `param`, yield `body`) lifted to a
-  # judgment op so `perform(op, arg)` can intercept: a `perform` call's
+  # judgment op so `perform(Head, arg)` can intercept: a `perform` call's
   # op operand is a *name*, not a checkable value — checking it as one
-  # would report the op's bare identifier (`puts`) as unbound. The
+  # would report the op's bare identifier (`PutStr`) as unbound. The
   # judgment defers `perform` calls to `synth_call`'s `synth_perform`
-  # branch and unifies the minted `IO{op: T}` with the expected type.
+  # branch, which resolves the declared effect algebra's `op : A ~> B`
+  # signature under the ambient mode set (PL-0004 G2 — the `IO{op: T}`
+  # codomain mint is retired).
   check: !Op
     name: check_call
     args: []
@@ -3220,11 +3222,13 @@
     lit: type.unknown
 
 # `handle` — install a handler for the duration of the target expression.
-# `handle <expr> with <handler>` (phase-2 WS-F): `synth_handle` checks the
-# handler's declared op coverage against the body's `IO(S)` op set —
-# covered entries are replaced by the impl's declared return type,
-# uncovered stay `IO` ops (the interpret-in-place residual `IO(S')`).
-# A non-IO body passes its type through unchanged.
+# `handle <expr> with <handler>` (phase-2 WS-F + PL-0004 G2): the
+# judgment is a modality `μ → μ′` over ambient mode *elements* —
+# coverage = handled heads ⊆ the body's effect heads, each covered
+# head's payload re-keys to the impl's return type (`op ↦ ret`),
+# uncovered heads keep their elements, and the residual is
+# requires-closed. The body's type passes through unchanged (the
+# `IO(S)` codomain former is retired).
 - id: type.handle
   node_kind: handle
   synth: !Op

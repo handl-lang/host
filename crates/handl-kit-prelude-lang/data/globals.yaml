@@ -20,7 +20,7 @@ false: false
 # Mode payloads are *calls*: `~[Cost(3)]~>` reads "mode `3` in the
 # `Cost` algebra" — the call head selects `mode.algebra.<Head>` here,
 # the argument is the grade payload. Bare non-call modes
-# (`~[{io: S}]~>`, `~[Addable]~>`) compose under
+# (`~[{k: v}]~>`, `~[Addable]~>`) compose under
 # `mode.algebra.default`.
 #
 # `mode.algebra.default` — the canonical default algebra
@@ -32,19 +32,9 @@ mode.algebra.default:
   unit: null
   order: "eq"
 
-# `mode.algebra.Effects` — the canonical effect-row algebra (PL-0004
-# E0; design/effects-ambient-modes.md §2): `compose` is record-row
-# union with the entry-merge rule (a shared op keeps its entry iff the
-# two entries unify; a decided conflict degrades that entry to a fresh
-# meta — the honest bound), `unit` the empty row `{}`, `order`
-# row-width subsumption (`s' ⊇ s` — the `io_headed` direction,
-# consumed by M3). The head is capitalized to match the surface
-# spelling `Effects(S)` — `~[Effects(row)]~>` / `@ [Effects(S)]`
-# resolve `mode.algebra.<Head>` by the call head as written.
-# `IO<sig>`/`handle`/`perform` remain the canonical effect mechanism
-# until E1; this only *permits* `~[{io: S}]~>` / `~[Effects(row)]~>`
-# annotations today.
-mode.algebra.Effects:
-  compose: "row_union"
-  unit: {}
-  order: "row_width"
+# PL-0004 G2 (design/effects-ambient-modes.md v2 §2/§6): the
+# `mode.algebra.Effects` row algebra is retired with the `Effects(S)`
+# spelling — effects are granular `new Algebra { op : A ~> B }`
+# heads whose mode elements are bare heads (`@ [PutStr]`), composed
+# by set union and subsumed by set inclusion. `IO<sig>`/`type.io`
+# are gone outright; `@ [..]` is the only effect surface.
