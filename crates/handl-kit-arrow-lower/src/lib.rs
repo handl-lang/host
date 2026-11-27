@@ -3171,19 +3171,66 @@ fn compile_pattern(
         let callee = ast
             .get(AstRef::new(callee_idx))
             .ok_or_else(|| format!("tag callee {callee_idx} out of bounds"))?;
-        let tag_name = callee.payload.as_str().ok_or_else(|| {
-            format!(
-                "match at {}: tag pattern callee is not a var",
-                node_index(node)
-            )
-        })?;
+        // The callee is a bare `var` (tag/ctor leaf name) or a
+        // qualified `F.c` `field-access` — `Family.ctor(…)` patterns.
+        // The qualified form yields the ctor leaf name for dispatch
+        // plus the lowered family term for the `__former__` identity
+        // check (mirroring `qualified_tag_callee` in
+        // `exec::pattern_match`).
+        let (tag_name, family_term) = match callee.payload.as_str() {
+            Some(s) => (s.to_string(), None),
+            None => {
+                let is_field_access = matches!(
+                    lang.child_role_index(&callee.kind, "target"),
+                    Ok(Some(_))
+                ) || matches!(callee.kind.as_str(), "field-access" | "field_access");
+                if !is_field_access {
+                    return Err(format!(
+                        "match at {}: tag pattern callee is not a var",
+                        node_index(node)
+                    ));
+                }
+                let cch = children(callee);
+                // `field` payload first (the grammar's `payload_extract`);
+                // the field-role child `var` is the fallback.
+                let leaf = callee
+                    .payload
+                    .get("field")
+                    .and_then(|v| v.as_str())
+                    .map(str::to_string)
+                    .or_else(|| {
+                        cch.get(1)
+                            .and_then(|i| ast.get(AstRef::new(*i)))
+                            .and_then(|n| n.payload.as_str())
+                            .map(str::to_string)
+                    })
+                    .ok_or_else(|| {
+                        format!(
+                            "match at {}: qualified callee has no field name",
+                            node_index(node)
+                        )
+                    })?;
+                let target_idx = child_at_role_or_pos(callee, lang, "target", 0)
+                    .ok_or_else(|| {
+                        format!(
+                            "match at {}: qualified callee missing target",
+                            node_index(node)
+                        )
+                    })?;
+                let fam_t = lower_node(ast, lang, target_idx, pat_env, &[])?;
+                (leaf, Some(fam_t))
+            }
+        };
         // `has_field "__tag__"` covers both the non-object and the
         // untagged-object miss — `try_tag_pattern`'s `Ok(false)`.
         let tag_pred = and_short(
             has_field("__tag__"),
             Term::op_native(
                 "eq",
-                vec![field("__tag__"), Term::const_value(Value::from(tag_name))],
+                vec![
+                    field("__tag__"),
+                    Term::const_value(Value::from(tag_name.as_str())),
+                ],
             ),
         );
         // Canonical constructor objects (ADR-0152 §2,
@@ -3194,13 +3241,62 @@ fn compile_pattern(
         // `eq` total. A `__tag__` hit takes the tag path first, exactly
         // like `try_tag_pattern` falling through to the ctor check only
         // on a tag miss.
-        let ctor_pred = Term::op_native(
+        let name_eq = Term::op_native(
             "eq",
             vec![
                 on_v(Term::op_native("ctor_name", vec![id.clone()])),
-                Term::const_value(Value::from(tag_name)),
+                Term::const_value(Value::from(tag_name.as_str())),
             ],
         );
+        let ctor_pred = match &family_term {
+            None => name_eq,
+            Some(fam_t) => {
+                // Qualified `F.c`: the scrutinee's `type.__former__`
+                // sym must equal the family record's — `Maybe.just`
+                // must not match `Other.just` values. A family value
+                // without `__former__` degrades to leaf-name dispatch,
+                // mirroring `qualified_tag_callee`'s `family_sym`
+                // fallback. Every projection sits behind a `has_field`
+                // guard so a non-family scrutinee misses instead of
+                // erroring.
+                let lit_fa = |t: Term, k: &str| {
+                    Term::op_native_lit("field_access", vec![t], Value::from(k))
+                };
+                // `has_field` reads its incoming value — chain the
+                // producer term so the check runs on the projected
+                // object, not the raw scrutinee.
+                let has_in = |producer: Term, k: &str| {
+                    Term::seq(
+                        producer,
+                        Term::op_native_lit(
+                            "has_field",
+                            vec![id.clone()],
+                            Value::from(k),
+                        ),
+                    )
+                };
+                let scrut_ty = lit_fa(pv(), "type");
+                let fam_has_former = has_in(fam_t.clone(), "__former__");
+                let scrut_ok = and_short(
+                    has_field("type"),
+                    and_short(
+                        has_in(scrut_ty.clone(), "__former__"),
+                        Term::op_native(
+                            "eq",
+                            vec![
+                                lit_fa(scrut_ty, "__former__"),
+                                lit_fa(fam_t.clone(), "__former__"),
+                            ],
+                        ),
+                    ),
+                );
+                let former_check = or_short(
+                    Term::op_native("not", vec![fam_has_former]),
+                    scrut_ok,
+                );
+                and_short(name_eq, former_check)
+            }
+        };
         let pred = or_short(tag_pred.clone(), ctor_pred);
         // Ctor-path field order — `try_ctor_object_pattern`'s
         // `declared`: the callee's `Arrow.params` when it resolves to
@@ -3208,7 +3304,7 @@ fn compile_pattern(
         // sorted-fields fallback (`ctor_fields`, minus `__ctor__`/
         // `type`).
         let declared: Option<Vec<String>> =
-            pat_env.get(tag_name).and_then(|e| e.param_names.clone());
+            pat_env.get(tag_name.as_str()).and_then(|e| e.param_names.clone());
         // Binder positions start at the `args` role (index 1 on
         // canonical `call`); every position advances the payload index,
         // while non-`var` and wildcard args bind nothing — mirroring
