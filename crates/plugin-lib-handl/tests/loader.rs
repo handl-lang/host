@@ -257,6 +257,52 @@ mod bootstrap {
         }
     }
 
+    /// The names of a bare `export <name>[, <name>…]` re-export
+    /// declaration — `rest` must be a comma-separated list of plain
+    /// identifiers. `None` when it is not. Mirrors `loader.hnl`'s
+    /// `reexport_name_list` / `handl_runtime::module_prep`.
+    fn reexport_name_list(rest: &str) -> Option<Vec<String>> {
+        // Plain comma split — mirrors `loader.hnl`'s `str.split(rest, ",")`.
+        let names: Vec<String> = rest
+            .split(',')
+            .map(|n| n.trim().to_string())
+            .filter(|n| !n.is_empty())
+            .collect();
+        if names.is_empty() || names.iter().any(|n| !is_valid_ident(n)) {
+            return None;
+        }
+        Some(names)
+    }
+
+    /// The names of every bare `export <name>[, <name>…]` declaration in
+    /// `s` (deduped, source order) — the declarations the transform
+    /// defers to post-scan validation. Mirrors `loader.hnl`'s
+    /// `collect_reexports`.
+    fn collect_reexports(src: &str) -> Vec<String> {
+        let mut acc: Vec<String> = Vec::new();
+        for seg in top_level_segments(src) {
+            let t0 = seg.trim();
+            if is_import_line(t0) {
+                continue;
+            }
+            let Some(er) = export_decl_rest(t0) else {
+                continue;
+            };
+            if find_binding_sep(er).is_some() || is_data_decl_rest(er) {
+                continue;
+            }
+            let Some(ns) = reexport_name_list(er) else {
+                continue;
+            };
+            for n in ns {
+                if !acc.contains(&n) {
+                    acc.push(n);
+                }
+            }
+        }
+        acc
+    }
+
     fn collect_import_lines(src: &str) -> Vec<String> {
         top_level_segments(src)
             .iter()
@@ -1047,10 +1093,18 @@ mod bootstrap {
                     continue;
                 }
                 let Some((sep_pos, sep_len)) = find_binding_sep(rest) else {
-                    panic!(
-                        "module prep: cannot transform `export` declaration \
-                         (expected `export <name> <:=|: > …`): {trimmed}"
-                    );
+                    // `export <name>[, <name>…]` — a bare re-export list
+                    // naming `:=` bindings; validated against the
+                    // completed entries/priv after the scan (mirrors
+                    // `loader.hnl`). Anything else separator-less still
+                    // fails loudly.
+                    if reexport_name_list(rest).is_none() {
+                        panic!(
+                            "module prep: cannot transform `export` declaration \
+                             (expected `export <name> <:=|: > …`): {trimmed}"
+                        );
+                    }
+                    continue;
                 };
                 let name = strip_export_name(&rest[..sep_pos]);
                 if name.is_empty() {
@@ -1121,6 +1175,31 @@ mod bootstrap {
             }
         }
         finalize!();
+
+        // Bare `export <name>[, <name>…]` re-exports — mirrors
+        // `loader.hnl`: an already-exported entry needs nothing; a
+        // private `:=` binding or an import-bound local joins the
+        // record as a `name: name` field; anything else panics.
+        for name in collect_reexports(src) {
+            if entries.iter().any(|(n, _)| *n == name) {
+                continue;
+            }
+            let is_private = privates.iter().any(|p| match p {
+                Priv::Bind { name: n, .. } => *n == name,
+                Priv::Decl { .. } => false,
+            });
+            let is_import = top_level_segments(src)
+                .iter()
+                .map(|seg| seg.trim())
+                .filter(|seg| is_import_line(seg))
+                .flat_map(|seg| import_bound_locals(seg))
+                .any(|n| n == name);
+            if is_private || is_import {
+                entries.push((name.clone(), vec![name]));
+            } else {
+                panic!("module prep: `export {name}` does not name a top-level binding");
+            }
+        }
 
         let imports = collect_import_lines(src);
 
@@ -1477,6 +1556,15 @@ const CORPUS: &[&str] = &[
     "export data_transfer := 5\nexport data := 6\n",
     // `export data` mixed with ordinary exports and a private helper.
     "helper := n ~> n + 1\nexport data Nat := Zero | Succ(n : Nat)\nexport bump := n ~> helper(n)\n",
+    // Bare `export <name>[, <name>…]` re-exports of `:=` bindings —
+    // after the binding, before it, mixed with real exports, of an
+    // import-bound local, and a duplicate of an existing export.
+    "helper := x ~> x + 1\nexport helper\n",
+    "export later\nlater := x ~> x * 3\n",
+    "export a, b\na := 1\nb := 2\nexport c := a + b\n",
+    "from \"dep.hnl\" import g\nexport g\n",
+    "export f := x ~> x + 1\nexport f\n",
+    "export data Nat := Zero | Succ(n : Nat)\nmk := Zero\nexport mk\n",
     // NOTE: whole-package sources (e.g. str-handl.hnl) are excluded: the
     // interpreted transform over ~25k chars is far too slow for a test —
     // see AGENTS.md "loader self-hosting" for the performance note.
@@ -1495,9 +1583,12 @@ fn separatorless_export_fails_loudly() {
     // The handl loader itself errors — via `error.raise`, which the
     // loader runtime provides (I-006): the message is the loader's own
     // diagnostic, not an unbound-name/`call_host` miss.
+    // `export (paren)` is separator-less AND not a valid identifier
+    // list, so it is still untransformable (a bare `export name` is a
+    // re-export declaration now — see the re-export corpus cases).
     let err = loader()
         .expect("loader installed")
-        .call("transform_export_to_object", "export just_a_name\n")
+        .call("transform_export_to_object", "export (paren)\n")
         .expect_err("loader must fail on a separator-less export");
     let msg = format!("{err}");
     assert!(
@@ -1507,7 +1598,7 @@ fn separatorless_export_fails_loudly() {
 
     // The bootstrap mirror panics with the diagnostic.
     let caught =
-        std::panic::catch_unwind(|| bootstrap::transform_export_to_object("export just_a_name\n"));
+        std::panic::catch_unwind(|| bootstrap::transform_export_to_object("export (paren)\n"));
     let panic_msg = caught.expect_err("bootstrap must panic on separator-less export");
     let text = panic_msg
         .downcast_ref::<String>()
@@ -1521,7 +1612,7 @@ fn separatorless_export_fails_loudly() {
 
     // And the public entry point — loader error falls back to the
     // bootstrap panic — is loud too.
-    let caught = std::panic::catch_unwind(|| transform_export_to_object("export just_a_name\n"));
+    let caught = std::panic::catch_unwind(|| transform_export_to_object("export (paren)\n"));
     assert!(caught.is_err(), "public transform must fail loudly");
 }
 

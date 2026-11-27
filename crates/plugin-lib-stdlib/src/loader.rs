@@ -306,6 +306,11 @@ fn collect_export_names(src: &str) -> Vec<String> {
             if let Some((sep_pos, _)) = find_binding_sep(rest) {
                 let name = strip_export_name(&rest[..sep_pos]);
                 names.push(name.clone());
+            } else if let Some(rex) = reexport_name_list(rest) {
+                // `export <name>[, <name>…]` — bare re-export of `:=`
+                // bindings (name seeding is best-effort; the transform
+                // validates each name against the bindings).
+                names.extend(rex);
             }
         }
     }
@@ -530,6 +535,51 @@ fn export_decl_rest(trimmed: &str) -> Option<&str> {
     }
 }
 
+/// The names of a bare `export <name>[, <name>…]` re-export declaration —
+/// `rest` must be a comma-separated list of plain identifiers. `None`
+/// when it is not. Mirrors `handl_runtime::module_prep::reexport_name_list`
+/// and `loader.hnl`'s `reexport_name_list`.
+fn reexport_name_list(rest: &str) -> Option<Vec<String>> {
+    // Plain comma split — mirrors `loader.hnl`'s `str.split(rest, ",")`.
+    let names: Vec<String> = rest
+        .split(',')
+        .map(|n| n.trim().to_string())
+        .filter(|n| !n.is_empty())
+        .collect();
+    if names.is_empty() || names.iter().any(|n| !is_valid_ident(n)) {
+        return None;
+    }
+    Some(names)
+}
+
+/// The names of every bare `export <name>[, <name>…]` declaration in `s`
+/// (deduped, source order) — the declarations the transform defers to
+/// post-scan validation. Mirrors `loader.hnl`'s `collect_reexports`.
+fn collect_reexports(src: &str) -> Vec<String> {
+    let mut acc: Vec<String> = Vec::new();
+    for seg in top_level_segments(src) {
+        let t0 = seg.trim();
+        if is_import_line(t0) {
+            continue;
+        }
+        let Some(er) = export_decl_rest(t0) else {
+            continue;
+        };
+        if find_binding_sep(er).is_some() {
+            continue;
+        }
+        let Some(ns) = reexport_name_list(er) else {
+            continue;
+        };
+        for n in ns {
+            if !acc.contains(&n) {
+                acc.push(n);
+            }
+        }
+    }
+    acc
+}
+
 /// `src` with top-level import statements removed (all other statements
 /// kept verbatim). Statement segmentation mirrors
 /// `handl_runtime::module_prep::drop_all_import_lines`.
@@ -611,14 +661,17 @@ fn transform_export_to_object(src: &str, op_names: &[String]) -> String {
             finalize!();
             // Find the binding separator (`::`, `:=`, or legacy `=`).
             let Some((sep_pos, sep_len)) = find_binding_sep(rest) else {
-                // Never drop an export declaration silently — a module
-                // that reaches eval with a vanished export produces an
-                // empty record (`{}`) or an "unbound name" error far
-                // from the cause (mirrors `module_prep`'s `LangError`).
-                panic!(
-                    "module prep: cannot transform `export` declaration \
-                     (expected `export <name> <::|:=|=|: > …`): {trimmed}"
-                );
+                // `export <name>[, <name>…]` — a bare re-export list
+                // naming `:=` bindings; validated against the completed
+                // bindings after the scan (mirrors `loader.hnl`).
+                // Anything else separator-less still fails loudly.
+                if reexport_name_list(rest).is_none() {
+                    panic!(
+                        "module prep: cannot transform `export` declaration \
+                         (expected `export <name> <::|:=|=|: > …`): {trimmed}"
+                    );
+                }
+                continue;
             };
             let name = strip_export_name(&rest[..sep_pos]);
             if name.is_empty() {
@@ -703,6 +756,34 @@ fn transform_export_to_object(src: &str, op_names: &[String]) -> String {
             continue;
         }
         bindings.push((local.to_string(), vec![format!("\"{qualified}\"")], true));
+    }
+
+    // Bare `export <name>[, <name>…]` re-exports — mirrors `loader.hnl`:
+    // an already-exported binding needs nothing; a private `:=` binding
+    // or an import-bound local joins the record as a `name: name` field
+    // (the binding itself stays in the prelude / hoisted imports);
+    // anything else panics.
+    for name in collect_reexports(src) {
+        if bindings
+            .iter()
+            .any(|(n, _, exported)| *exported && *n == name)
+        {
+            continue;
+        }
+        let is_private = bindings
+            .iter()
+            .any(|(n, _, exported)| !*exported && *n == name);
+        let is_import = top_level_segments(src)
+            .iter()
+            .map(|seg| seg.trim())
+            .filter(|seg| is_import_line(seg))
+            .flat_map(|seg| import_bound_locals(seg))
+            .any(|n| n == name);
+        if is_private || is_import {
+            bindings.push((name.clone(), vec![name], true));
+        } else {
+            panic!("module prep: `export {name}` does not name a top-level binding");
+        }
     }
 
     let has_exports = bindings.iter().any(|(_, _, exported)| *exported);
@@ -1473,12 +1554,42 @@ mod tests {
         );
     }
 
-    /// A malformed `export` — no binding separator — must never silently
-    /// drop into an empty record (mirrors `module_prep`'s `LangError`).
+    /// A malformed `export` — no binding separator and not a valid
+    /// identifier list — must never silently drop into an empty record
+    /// (mirrors `module_prep`'s `LangError`). A bare `export name` is a
+    /// re-export declaration now, so this uses a non-identifier tail.
     #[test]
     #[should_panic(expected = "cannot transform `export` declaration")]
     fn separatorless_export_fails_loudly() {
-        transform_export_to_object("export just_a_name\n", &[]);
+        transform_export_to_object("export (paren)\n", &[]);
+    }
+
+    /// Bare `export <name>[, <name>…]` re-exports of `:=` bindings join
+    /// the record as self-referencing fields; the binding stays in the
+    /// prelude.
+    #[test]
+    fn bare_export_reexports_bindings() {
+        let src = "helper := x ~> x + 1\nexport helper\n";
+        assert_eq!(
+            transform_export_to_object(src, &[]),
+            "do {\nhelper := x ~> x + 1;\n{ \"helper\": helper }\n}"
+        );
+    }
+
+    /// A re-export may precede its binding, and an unknown name is loud.
+    #[test]
+    fn bare_export_forward_and_unknown() {
+        let src = "export later\nlater := x ~> x * 3\n";
+        assert_eq!(
+            transform_export_to_object(src, &[]),
+            "do {\nlater := x ~> x * 3;\n{ \"later\": later }\n}"
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "does not name a top-level binding")]
+    fn bare_export_unknown_name_fails_loudly() {
+        transform_export_to_object("export nope\n", &[]);
     }
 
     /// An `export` with a separator but no binding name is loud too.

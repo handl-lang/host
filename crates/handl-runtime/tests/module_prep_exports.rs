@@ -292,7 +292,10 @@ fn nested_graded_arrow_still_evaluates() {
 #[test]
 fn separatorless_export_is_a_loud_error() {
     let root = scratch_dir("no-sep");
-    let src = "export just_a_name\n";
+    // `(paren)` is separator-less and not a valid identifier list — a
+    // bare `export name` is a re-export declaration now (see the
+    // `bare_export_*` tests), so this is still untransformable.
+    let src = "export (paren)\n";
     let err = run(&root, src, "1").expect_err("separator-less export must error");
     assert!(
         err.contains("export") && err.contains("cannot transform"),
@@ -547,5 +550,86 @@ fn coverage_reports_file_lines() {
         let want = if name == "base" { 3 } else { 6 };
         assert_eq!(d.file_line, Some(want), "{name}: {d:?}");
     }
+    std::fs::remove_dir_all(&root).ok();
+}
+
+/// Bare `export <name>[, <name>…]` re-exports a private `:=` binding:
+/// the name joins the export record while the binding stays a do-block
+/// assignment, so both named and star imports reach it.
+#[test]
+fn bare_export_reexports_private_binding() {
+    let root = scratch_dir("reexport");
+    let src = "inc := x ~> x + 1\ndouble := x ~> x * 2\nexport inc, double\n";
+    let value = run(
+        &root.join("named"),
+        src,
+        r#"do { from "mod.hnl" import double; double(21) }"#,
+    )
+    .expect("named import of re-exported binding must evaluate");
+    assert_eq!(value, json!(42));
+
+    let value = run(
+        &root.join("star"),
+        src,
+        r#"do { from "mod.hnl" import * as m; m.inc(1) }"#,
+    )
+    .expect("star import must see the re-exported name");
+    assert_eq!(value, json!(2));
+    std::fs::remove_dir_all(&root).ok();
+}
+
+/// A re-export may precede its binding — resolution happens after the
+/// whole module is scanned.
+#[test]
+fn bare_export_before_its_binding() {
+    let root = scratch_dir("reexport-fwd");
+    let src = "export later\nlater := x ~> x * 3\n";
+    let value = run(
+        &root,
+        src,
+        r#"do { from "mod.hnl" import later; later(14) }"#,
+    )
+    .expect("forward re-export must evaluate");
+    assert_eq!(value, json!(42));
+    std::fs::remove_dir_all(&root).ok();
+}
+
+/// Re-exporting an already-exported name is a no-op, not a duplicate
+/// record field.
+#[test]
+fn bare_export_of_exported_name_is_noop() {
+    let root = scratch_dir("reexport-noop");
+    let src = "export f := x ~> x + 1\nexport f\n";
+    let value = run(&root, src, r#"do { from "mod.hnl" import f; f(41) }"#)
+        .expect("duplicate re-export must evaluate");
+    assert_eq!(value, json!(42));
+    std::fs::remove_dir_all(&root).ok();
+}
+
+/// A bare re-export naming nothing is a loud prep error — never a
+/// silent `{}` module.
+#[test]
+fn bare_export_unknown_name_is_loud() {
+    let root = scratch_dir("reexport-unknown");
+    let err =
+        run(&root, "export nope\n", r#"1"#).expect_err("re-export of an unknown name must fail");
+    assert!(
+        err.contains("does not name a top-level binding"),
+        "unexpected error: {err}"
+    );
+    std::fs::remove_dir_all(&root).ok();
+}
+
+/// A bare re-export can name a local bound by a hoisted import — the
+/// import binds it at eval time, so `name: name` reaches it.
+#[test]
+fn bare_export_of_import_bound_local() {
+    let root = scratch_dir("reexport-import");
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::write(root.join("dep.hnl"), "export g := x ~> x + 10\n").unwrap();
+    let src = "from \"dep.hnl\" import g\nexport g\n";
+    let value = run(&root, src, r#"do { from "mod.hnl" import g; g(32) }"#)
+        .expect("re-export of an import-bound local must evaluate");
+    assert_eq!(value, json!(42));
     std::fs::remove_dir_all(&root).ok();
 }

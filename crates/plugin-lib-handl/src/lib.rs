@@ -1037,6 +1037,11 @@ mod bootstrap {
         // body's own value is the module record and no name projection
         // is appended — mirrors `handl_runtime::module_prep`.
         let mut tail_is_binding = true;
+        // Bare `export <name>[, <name>…]` re-export declarations (no
+        // binding separator — mirrors `export sort, cons` in arrow
+        // modules, ADR-0069). Validated against the completed item list
+        // after the scan so the declaration may precede the binding.
+        let mut reexports: Vec<String> = Vec::new();
 
         // Finalize `current` into the ordered item list.
         macro_rules! finalize {
@@ -1084,14 +1089,24 @@ mod bootstrap {
                 }
                 // Find the binding separator (`::`, `:=`, or legacy `=`).
                 let Some((sep_pos, sep_len)) = find_binding_sep(rest) else {
-                    // Never drop an export declaration silently — a module
-                    // that reaches eval with a vanished export produces an
-                    // empty record (`{}`) or an "unbound name" error far
-                    // from the cause (mirrors `module_prep`'s `LangError`).
-                    panic!(
-                        "module prep: cannot transform `export` declaration \
-                         (expected `export <name> <::|:=|=|: > …`): {trimmed}"
-                    );
+                    // `export <name>[, <name>…]` — a bare re-export list
+                    // naming `:=` bindings. The names are validated
+                    // against the completed item list after the scan; a
+                    // list that is not plain identifiers is still
+                    // untransformable (mirrors `module_prep`).
+                    let Some(names) = reexport_name_list(rest) else {
+                        // Never drop an export declaration silently — a module
+                        // that reaches eval with a vanished export produces an
+                        // empty record (`{}`) or an "unbound name" error far
+                        // from the cause (mirrors `module_prep`'s `LangError`).
+                        panic!(
+                            "module prep: cannot transform `export` declaration \
+                             (expected `export <name> <::|:=|=|: > …`): {trimmed}"
+                        );
+                    };
+                    reexports.extend(names);
+                    tail_is_binding = true;
+                    continue;
                 };
                 let name = strip_export_name(&rest[..sep_pos]);
                 if name.is_empty() {
@@ -1168,6 +1183,62 @@ mod bootstrap {
             }
         }
         finalize!();
+
+        // Apply bare `export <name>[, <name>…]` re-exports — mirrors
+        // `handl_runtime::module_prep`: an `export data` name is already
+        // projected; the *last* `:=` binding of that name is marked
+        // exported in place; an import-bound local gets a self-binding
+        // (`name := name`) since the hoisted import binds it at eval
+        // time; anything else panics — a typo'd re-export would
+        // otherwise surface far away as an unbound-name eval error.
+        if !reexports.is_empty() {
+            let import_names: Vec<String> = top_level_segments(src)
+                .iter()
+                .map(|seg| seg.trim())
+                .filter(|seg| is_import_line(seg))
+                .flat_map(|seg| import_bound_locals(seg))
+                .collect();
+            for name in reexports {
+                let already = items.iter().any(|item| match item {
+                    PrepItem::Bind {
+                        name: n, exported, ..
+                    } => *n == name && *exported,
+                    PrepItem::Decl { exports, .. } => exports.contains(&name),
+                });
+                if already {
+                    continue;
+                }
+                if !is_bindable_name(&name) {
+                    panic!(
+                        "module prep: `export {name}` cannot re-export a name \
+                         that is not a bindable identifier"
+                    );
+                }
+                let marked = items
+                    .iter_mut()
+                    .rev()
+                    .find(|item| {
+                        matches!(item, PrepItem::Bind { name: n, exported: false, .. } if *n == name)
+                    })
+                    .map(|item| {
+                        if let PrepItem::Bind { exported, .. } = item {
+                            *exported = true;
+                        }
+                    });
+                if marked.is_some() {
+                    continue;
+                }
+                if import_names.iter().any(|n| *n == name) {
+                    items.push(PrepItem::Bind {
+                        name: name.clone(),
+                        expr_lines: vec![name.clone()],
+                        exported: true,
+                    });
+                    continue;
+                }
+                panic!("module prep: `export {name}` does not name a top-level binding");
+            }
+        }
 
         let has_exports = items.iter().any(|item| match item {
             PrepItem::Bind { exported, .. } => *exported,
@@ -1718,6 +1789,22 @@ mod bootstrap {
             i += 1;
         }
         s.trim().to_string()
+    }
+
+    /// The names of a bare `export <name>[, <name>…]` re-export
+    /// declaration — `rest` must be a comma-separated list of plain
+    /// identifiers. `None` when it is not. Mirrors
+    /// `handl_runtime::module_prep::reexport_name_list`.
+    fn reexport_name_list(rest: &str) -> Option<Vec<String>> {
+        let names: Vec<String> = split_top_commas(rest)
+            .iter()
+            .map(|n| n.trim().to_string())
+            .filter(|n| !n.is_empty())
+            .collect();
+        if names.is_empty() || names.iter().any(|n| !is_valid_ident(n)) {
+            return None;
+        }
+        Some(names)
     }
 
     /// True when `s` is a plausible Handl identifier: starts with an

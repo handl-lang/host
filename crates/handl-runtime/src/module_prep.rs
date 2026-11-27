@@ -12,7 +12,8 @@
 //! following another statement — and its `:=` RHS is captured whole no
 //! matter how the author laid out newlines inside `do {…}`/`if`/`else`
 //! blocks. A construct that cannot be transformed (an `export`
-//! declaration without a `:=`/`:` separator) is a hard
+//! declaration that is neither a binding form nor a bare
+//! `export <name>[, <name>…]` re-export list) is a hard
 //! [`LangError`] — module prep never silently drops a declaration.
 
 use handl_language::LangError;
@@ -153,9 +154,14 @@ pub fn module_export_names(src: &str) -> Vec<String> {
             } else if let Some((sep_pos, _)) = find_binding_sep(rest) {
                 let name = strip_export_name(&rest[..sep_pos]);
                 exported.push(name.clone());
+            } else if let Some(names) = reexport_name_list(rest) {
+                // `export <name>[, <name>…]` — bare re-export of `:=`
+                // bindings (name seeding is best-effort; `prepare_module`
+                // validates each name against the bindings).
+                exported.extend(names);
             }
-            // A separator-less `export` is skipped here (name seeding is
-            // best-effort); `prepare_module` reports it as an error.
+            // Anything else separator-less is skipped here (name seeding
+            // is best-effort); `prepare_module` reports it as an error.
         }
     }
     for qualified in op_names {
@@ -427,6 +433,12 @@ fn transform_export_to_object(
     // itself, so they join the no-exports record projection without a
     // prelude line.
     let mut import_bound: Vec<String> = Vec::new();
+    // Bare `export <name>[, <name>…]` re-export declarations (no binding
+    // separator — the same surface `export sort, cons` uses in arrow
+    // modules, ADR-0069). Each name must resolve to a top-level binding;
+    // the check runs after the scan so the declaration may precede the
+    // binding it names.
+    let mut reexports: Vec<String> = Vec::new();
     // Whether the module's last top-level statement is a binding. When it
     // is not (e.g. a trailing `do { … }` or record literal) the body's own
     // value is the module record and no name projection is appended.
@@ -526,15 +538,25 @@ fn transform_export_to_object(
                 continue;
             }
             let Some((sep_pos, sep_len)) = find_binding_sep(rest) else {
-                // Never drop an export declaration silently — a module
-                // that reaches eval with a vanished export produces an
-                // empty record (`{}`) or an "unbound name" error far
-                // from the cause.
-                return Err(LangError::engine(format!(
-                    "module prep: cannot transform `export` declaration \
-                     (expected `export <name> <:=|: > …`): {}",
-                    trimmed
-                )));
+                // `export <name>[, <name>…]` — a bare re-export list
+                // naming `:=` bindings (no `:=`/`:` of its own). The
+                // names are validated against the completed item list
+                // after the scan; a list that is not plain identifiers
+                // is still untransformable.
+                let Some(names) = reexport_name_list(rest) else {
+                    // Never drop an export declaration silently — a module
+                    // that reaches eval with a vanished export produces an
+                    // empty record (`{}`) or an "unbound name" error far
+                    // from the cause.
+                    return Err(LangError::engine(format!(
+                        "module prep: cannot transform `export` declaration \
+                         (expected `export <name> <:=|: > …`): {}",
+                        trimmed
+                    )));
+                };
+                reexports.extend(names);
+                tail_is_binding = true;
+                continue;
             };
             let name = strip_export_name(&rest[..sep_pos]);
             if name.is_empty() {
@@ -647,6 +669,58 @@ fn transform_export_to_object(
             pieces: vec![Piece::new(format!("\"{qualified}\""), None)],
             exported: true,
         });
+    }
+
+    // Apply bare `export <name>[, <name>…]` re-exports. Each name must
+    // resolve to a top-level binding: an `export data` family/constructor
+    // name is already projected; the *last* `:=` binding of that name is
+    // marked exported in place (forward references work — every binding
+    // emits before the record); an import-bound local gets a self-binding
+    // (`name := name`) since the hoisted import binds it at eval time.
+    // Anything else is a loud prep error — a typo'd re-export would
+    // otherwise surface far away as an unbound-name eval error.
+    for name in reexports {
+        let already = items.iter().any(|item| match item {
+            PrepItem::Bind {
+                name: n, exported, ..
+            } => *n == name && *exported,
+            PrepItem::Decl { exports, .. } => exports.iter().any(|e| *e == name),
+        });
+        if already {
+            continue;
+        }
+        if !is_bindable(&name) {
+            return Err(LangError::engine(format!(
+                "module prep: `export {name}` cannot re-export a name that \
+                 is not a bindable identifier"
+            )));
+        }
+        let marked = items
+            .iter_mut()
+            .rev()
+            .find(|item| {
+                matches!(item, PrepItem::Bind { name: n, exported: false, .. } if *n == name)
+            })
+            .map(|item| {
+                if let PrepItem::Bind { exported, .. } = item {
+                    *exported = true;
+                }
+            });
+        if marked.is_some() {
+            continue;
+        }
+        if import_bound.iter().any(|n| *n == name) {
+            items.push(PrepItem::Bind {
+                name: name.clone(),
+                stmt_line: None,
+                pieces: vec![Piece::new(name.clone(), None)],
+                exported: true,
+            });
+            continue;
+        }
+        return Err(LangError::engine(format!(
+            "module prep: `export {name}` does not name a top-level binding"
+        )));
     }
 
     let has_exports = items.iter().any(|item| match item {
@@ -1066,6 +1140,23 @@ fn export_decl_rest(trimmed: &str) -> Option<&str> {
     } else {
         None
     }
+}
+
+/// The names of a bare `export <name>[, <name>…]` re-export declaration —
+/// `rest` (the text after `export`) must be a comma-separated list of
+/// plain identifiers. `None` when it is not (the caller reports the
+/// declaration as untransformable). Mirrors the arrow-module surface
+/// `export sort, cons` (ADR-0069).
+fn reexport_name_list(rest: &str) -> Option<Vec<String>> {
+    let names: Vec<String> = split_top_commas(rest)
+        .iter()
+        .map(|n| n.trim().to_string())
+        .filter(|n| !n.is_empty())
+        .collect();
+    if names.is_empty() || names.iter().any(|n| !is_valid_ident(n)) {
+        return None;
+    }
+    Some(names)
 }
 
 /// Whether `rest` (the text after `export`) opens a `data` family
