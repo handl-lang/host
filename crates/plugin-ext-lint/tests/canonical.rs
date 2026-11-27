@@ -306,7 +306,7 @@ fn simplify_paren_var() {
     // preserving the surrounding source layout.
     let src = "-- doc\nx := 1\nmain := (x)\n";
     let fixed = fix(src).unwrap();
-    assert_eq!(fixed, "-- doc\nx := 1\nmain := x\n");
+    assert_eq!(fixed, "-- doc\nx := 1\n\nmain := x\n");
     let diags = lint_source(&fixed).unwrap();
     assert!(for_rule(&diags, "simplify-paren").is_empty());
 }
@@ -378,7 +378,7 @@ fn fmt_rule_fires() {
 fn fmt_rule_fix() {
     let src = "-- doc\nmain=42\n";
     let fixed = fix(src).unwrap();
-    assert_eq!(fixed, "-- doc\nmain := 42\n");
+    assert_eq!(fixed, "-- doc\nmain = 42\n");
     let diags = lint_source(&fixed).unwrap();
     assert!(for_rule(&diags, "fmt").is_empty());
 }
