@@ -92,6 +92,14 @@ if ! command -v cargo-llvm-cov >/dev/null 2>&1; then
   exit 1
 fi
 
+# llvm-cov needs llvm-tools-preview (rustup component) or explicit
+# LLVM_COV/LLVM_PROFDATA. On non-rustup distros (Arch `llvm` package)
+# the tools live at /usr/bin — pick them up when unset.
+if [ -z "${LLVM_COV:-}" ] && [ -z "${LLVM_PROFDATA:-}" ] \
+  && [ -x /usr/bin/llvm-cov ] && [ -x /usr/bin/llvm-profdata ]; then
+  export LLVM_COV=/usr/bin/llvm-cov LLVM_PROFDATA=/usr/bin/llvm-profdata
+fi
+
 # Instrumented builds are incompatible with incremental compilation.
 export CARGO_INCREMENTAL=0
 # A stable temp dir keeps profraw files out of the source tree.

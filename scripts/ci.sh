@@ -1,11 +1,17 @@
 #!/usr/bin/env bash
-# ci.sh — host CI pipeline for the bupha shell runner.
+# ci.sh — host CI pipeline: stage library + local convenience runner.
+#
+# The fleet gate entry point is `peregrin campaign run
+# workflows/gate.yaml` (scripts/gate-run.sh wraps it for exit-code
+# consumers). The campaign orchestrates the four stages serially with
+# run-all-stages semantics; THIS script remains the implementation —
+# per-stage invocation (`scripts/ci.sh <stage>`) is what the campaign
+# nodes exec, and bare `ci.sh` still runs the whole pipeline locally.
 #
 # Migrated from the Dagger module (dagger/src/ci/main.py — kept on disk
 # but deprecated): same stages, no containers, no docker. bupha invokes
-# this via `runner.kind = "shell"` → `bash -c "bash scripts/ci.sh"` inside
-# a detached worktree of the pushed sha; `bupha run` runs it in the main
-# checkout. It also works standalone.
+# the campaign inside a detached worktree of the pushed sha; `bupha
+# run` runs it in the main checkout. It also works standalone.
 #
 #   scripts/ci.sh                  # the whole gate: test + coverage-gate + dogfood + smoke
 #   scripts/ci.sh doctor           # toolchain + layout + project-doc smoke, no compile

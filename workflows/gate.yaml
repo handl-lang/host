@@ -1,11 +1,19 @@
 # workflows/gate.yaml — per-push gate for handl-lang/host.
 #
-# The repo's real gate is scripts/ci.sh (the bupha shell-runner
-# pipeline: test partitions + doctests + coverage-gate + dogfood +
-# smoke — see its header for the stage list). This campaign is the
-# workflows/gate.yaml port of that contract: init → run → report.
-# scripts/ci.sh owns its own ensure_siblings()/CARGO_TARGET_DIR/env
-# plumbing, so no ensure-siblings node is needed here.
+# The fleet contract: init → ensure → four gate stages run SERIALLY,
+# all of them, even when an earlier stage fails (each stage node
+# subscribes to both terminals of its predecessor — the ci.sh
+# "collect all failures" semantics) → report aggregates the
+# per-stage results records into the terminal verdict.
+#
+# scripts/ci.sh is the stage LIBRARY, not the entry point: each
+# stage node execs `bash scripts/ci.sh <stage>` (test |
+# coverage-gate | dogfood | smoke), which carries the env/auth/
+# sccache plumbing, worktree sibling layout, the hnl ext-toolchain
+# scratch-worktree machinery, and CI_SKIP_* semantics for local
+# stage runs too. CI_SKIP_DOGFOOD / CI_SKIP_SMOKE are honored here
+# as honest skip records (rc=0 + "skipped" field), matching ci.sh's
+# `ci` stage.
 #
 # Bupha/the fleet runner invokes:
 #
@@ -13,7 +21,8 @@
 #     peregrin campaign run workflows/gate.yaml --result .ci-result.json
 #
 # Verdict: .ci-result.json `.conclusion` == "success" (result: rules map
-# gate.pass/gate.fail + failure events).
+# gate.pass/gate.fail + failure events). scripts/gate-run.sh wraps this
+# for exit-code consumers (ci-watch.sh, bupha script runner).
 name: gate-host
 
 result:
@@ -25,13 +34,22 @@ result:
     conclusion: failure
   - event: gate.init.failed
     conclusion: failure
-  - event: gate.run.failed
+  - event: ensure.failed
     conclusion: failure
 
 capabilities:
   env:
     - GATE_REPO
     - GATE_RESULTS
+    - CI_JOBS
+    - CI_SHARDS
+    - CI_BUILD_JOBS
+    - CI_DOGFOOD_JOBS
+    - CI_SKIP_DOGFOOD
+    - CI_SKIP_SMOKE
+    - CI_TARGET_DIR
+    - HANDL_TOKEN
+    - BUPHA_TOKEN
 
 nodes:
   # --- init: validate inputs, fresh results file --------------------
@@ -55,47 +73,140 @@ nodes:
         "0": gate.due
         default: gate.init.failed
 
-  # --- run: the repo's own ci.sh pipeline, verbatim ----------------
-  - id: gate.run
-    driver: shell
+  # --- ensure: sibling layout + shared cargo target env ------------
+  - include: tamias:handl-gates@0.3.5//lib/ensure-siblings.node.yml
+    id: gate.ensure
     on: [gate.due]
-    emits: [gate.done, gate.failed]
+    emits: [ensure.done, ensure.failed]
+    params:
+      repo: '${config.gate.repo:-${env("GATE_REPO","")}}'
+      emit:
+        "0": ensure.done
+        default: ensure.failed
+
+  # --- stage: nextest partitions + doctests ------------------------
+  - id: gate.test
+    driver: shell
+    on: [ensure.done]
+    emits: [test.done, test.failed]
     params:
       repo: '${config.gate.repo:-${env("GATE_REPO","")}}'
       results: '${config.gate.results:-${env("GATE_RESULTS","$HOME/.local/share/handl-gates/host.results.jsonl")}}'
-      timeout: 7200
+      timeout: 5400
       cmd: |
         set -uo pipefail
-        REPO="${params.repo}"
-        RESULTS="${params.results}"
+        REPO="${params.repo}"; RESULTS="${params.results}"
         START=$(date +%s)
         cd "$REPO" && REPO="$(pwd)" || { echo "no such directory: ${params.repo}"; exit 1; }
         export PATH="$HOME/.local/bin:$HOME/.cargo/bin:/usr/local/bin:/usr/bin:/bin"
-        bash scripts/ci.sh
+        bash scripts/ci.sh test
         rc=$?
-        if [ -n "$RESULTS" ]; then
-          esc=$(printf '%s' "$REPO" | sed 's/\\/\\\\/g; s/"/\\"/g')
-          printf '{"family":"rust","repo":"%s","rc":%s,"secs":%s}\n' "$esc" "$rc" "$(( $(date +%s) - START ))" >> "$RESULTS" 2>/dev/null || true
-        fi
+        esc=$(printf '%s' "$REPO" | sed 's/\\/\\\\/g; s/"/\\"/g')
+        printf '{"family":"host-stage","repo":"%s","stage":"test","rc":%s,"secs":%s}\n' "$esc" "$rc" "$(( $(date +%s) - START ))" >> "$RESULTS" 2>/dev/null || true
         exit $rc
       emit:
-        "0": gate.done
-        default: gate.failed
+        "0": test.done
+        default: test.failed
 
-  # --- report: terminal verdict from the results record -------------
+  # --- stage: tooling-crates coverage floor ------------------------
+  - id: gate.coverage
+    driver: shell
+    on: [test.done, test.failed]
+    emits: [coverage.done, coverage.failed]
+    params:
+      repo: '${config.gate.repo:-${env("GATE_REPO","")}}'
+      results: '${config.gate.results:-${env("GATE_RESULTS","$HOME/.local/share/handl-gates/host.results.jsonl")}}'
+      timeout: 5400
+      cmd: |
+        set -uo pipefail
+        REPO="${params.repo}"; RESULTS="${params.results}"
+        START=$(date +%s)
+        cd "$REPO" && REPO="$(pwd)" || { echo "no such directory: ${params.repo}"; exit 1; }
+        export PATH="$HOME/.local/bin:$HOME/.cargo/bin:/usr/local/bin:/usr/bin:/bin"
+        bash scripts/ci.sh coverage-gate
+        rc=$?
+        esc=$(printf '%s' "$REPO" | sed 's/\\/\\\\/g; s/"/\\"/g')
+        printf '{"family":"host-stage","repo":"%s","stage":"coverage-gate","rc":%s,"secs":%s}\n' "$esc" "$rc" "$(( $(date +%s) - START ))" >> "$RESULTS" 2>/dev/null || true
+        exit $rc
+      emit:
+        "0": coverage.done
+        default: coverage.failed
+
+  # --- stage: hnl dogfood corpus -----------------------------------
+  - id: gate.dogfood
+    driver: shell
+    on: [coverage.done, coverage.failed]
+    emits: [dogfood.done, dogfood.failed]
+    params:
+      repo: '${config.gate.repo:-${env("GATE_REPO","")}}'
+      results: '${config.gate.results:-${env("GATE_RESULTS","$HOME/.local/share/handl-gates/host.results.jsonl")}}'
+      timeout: 5400
+      cmd: |
+        set -uo pipefail
+        REPO="${params.repo}"; RESULTS="${params.results}"
+        START=$(date +%s)
+        cd "$REPO" && REPO="$(pwd)" || { echo "no such directory: ${params.repo}"; exit 1; }
+        export PATH="$HOME/.local/bin:$HOME/.cargo/bin:/usr/local/bin:/usr/bin:/bin"
+        if [ "${CI_SKIP_DOGFOOD:-0}" = 1 ]; then
+          echo "gate.dogfood: CI_SKIP_DOGFOOD=1 — skipped"
+          esc=$(printf '%s' "$REPO" | sed 's/\\/\\\\/g; s/"/\\"/g')
+          printf '{"family":"host-stage","repo":"%s","stage":"dogfood","rc":0,"skipped":"CI_SKIP_DOGFOOD","secs":0}\n' "$esc" >> "$RESULTS" 2>/dev/null || true
+          exit 0
+        fi
+        bash scripts/ci.sh dogfood
+        rc=$?
+        esc=$(printf '%s' "$REPO" | sed 's/\\/\\\\/g; s/"/\\"/g')
+        printf '{"family":"host-stage","repo":"%s","stage":"dogfood","rc":%s,"secs":%s}\n' "$esc" "$rc" "$(( $(date +%s) - START ))" >> "$RESULTS" 2>/dev/null || true
+        exit $rc
+      emit:
+        "0": dogfood.done
+        default: dogfood.failed
+
+  # --- stage: hnl smoke suite --------------------------------------
+  - id: gate.smoke
+    driver: shell
+    on: [dogfood.done, dogfood.failed]
+    emits: [smoke.done, smoke.failed]
+    params:
+      repo: '${config.gate.repo:-${env("GATE_REPO","")}}'
+      results: '${config.gate.results:-${env("GATE_RESULTS","$HOME/.local/share/handl-gates/host.results.jsonl")}}'
+      timeout: 3600
+      cmd: |
+        set -uo pipefail
+        REPO="${params.repo}"; RESULTS="${params.results}"
+        START=$(date +%s)
+        cd "$REPO" && REPO="$(pwd)" || { echo "no such directory: ${params.repo}"; exit 1; }
+        export PATH="$HOME/.local/bin:$HOME/.cargo/bin:/usr/local/bin:/usr/bin:/bin"
+        if [ "${CI_SKIP_SMOKE:-0}" = 1 ]; then
+          echo "gate.smoke: CI_SKIP_SMOKE=1 — skipped"
+          esc=$(printf '%s' "$REPO" | sed 's/\\/\\\\/g; s/"/\\"/g')
+          printf '{"family":"host-stage","repo":"%s","stage":"smoke","rc":0,"skipped":"CI_SKIP_SMOKE","secs":0}\n' "$esc" >> "$RESULTS" 2>/dev/null || true
+          exit 0
+        fi
+        bash scripts/ci.sh smoke
+        rc=$?
+        esc=$(printf '%s' "$REPO" | sed 's/\\/\\\\/g; s/"/\\"/g')
+        printf '{"family":"host-stage","repo":"%s","stage":"smoke","rc":%s,"secs":%s}\n' "$esc" "$rc" "$(( $(date +%s) - START ))" >> "$RESULTS" 2>/dev/null || true
+        exit $rc
+      emit:
+        "0": smoke.done
+        default: smoke.failed
+
+  # --- report: aggregate per-stage records into the verdict ---------
   - id: gate.report
     driver: shell
-    on: [gate.done, gate.failed]
+    on: [smoke.done, smoke.failed]
     emits: [gate.pass, gate.fail]
     params:
       cmd: >-
         set -u;
         F="${config.gate.results:-${env("GATE_RESULTS","$HOME/.local/share/handl-gates/host.results.jsonl")}}";
-        [ -s "$F" ] || { echo "no results record — gate produced nothing"; exit 1; };
-        line=$(tail -n 1 "$F");
-        rc=$(printf '%s' "$line" | sed -n 's/.*"rc":\([0-9][0-9]*\).*/\1/p');
-        echo "gate-host verdict: $line";
-        [ "${rc:-1}" = "0" ]
+        [ -s "$F" ] || { echo "no results records — gate produced nothing"; exit 1; };
+        n=$(grep -c '"rc"' "$F" || true);
+        [ "$n" -ge 4 ] || { echo "only $n stage record(s) — expected 4 (test, coverage-gate, dogfood, smoke)"; exit 1; };
+        bad=$(sed -n 's/.*"rc":\([0-9][0-9]*\).*/\1/p' "$F" | grep -cv '^0$' || true);
+        echo "gate-host verdict: $n stage record(s), $bad non-zero";
+        [ "$bad" = 0 ]
       timeout: 60
       emit:
         "0": gate.pass
