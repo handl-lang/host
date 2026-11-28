@@ -75,12 +75,42 @@ pub fn prepare_module_mapped(
     is_file_spec: &dyn Fn(&str) -> bool,
     is_bindable: &dyn Fn(&str) -> bool,
 ) -> Result<PreparedModule, LangError> {
+    prepare_module_mapped_inner(src, is_file_spec, is_bindable, false)
+}
+
+/// [`prepare_module_mapped`] variant whose result record projects
+/// **every** top-level binding — exported or not — so consumers that
+/// need the module's full scope (e.g. `hnl test`'s per-module eval env,
+/// which must see private helpers exactly like the legacy
+/// `do { preamble; body }` wrap) can inject all of them as globals.
+///
+/// `export` declarations are still parsed, validated, and rewritten
+/// (`export x := e` binds `x`; type-only exports erase to `null`;
+/// bare `export a, b` re-export lists must name real bindings) — only
+/// the final record projection differs: it carries every bound name
+/// instead of just the declared exports. Non-binding top-level
+/// statements are not preserved (same as the export-module path — the
+/// module's interface is its bindings, not a trailing expression).
+pub fn prepare_module_scope_mapped(
+    src: &str,
+    is_file_spec: &dyn Fn(&str) -> bool,
+    is_bindable: &dyn Fn(&str) -> bool,
+) -> Result<PreparedModule, LangError> {
+    prepare_module_mapped_inner(src, is_file_spec, is_bindable, true)
+}
+
+fn prepare_module_mapped_inner(
+    src: &str,
+    is_file_spec: &dyn Fn(&str) -> bool,
+    is_bindable: &dyn Fn(&str) -> bool,
+    project_all: bool,
+) -> Result<PreparedModule, LangError> {
     let origin_lines = src.lines().count() as u32;
     let (src, map_comments) = strip_comment_lines_mapped(src);
     let op_names = collect_op_decl_names(&src);
     let (src, map_decls) = strip_declaration_lines_mapped(&src);
     let (prepared, mut map, has_exports) =
-        transform_export_to_object(&src, is_file_spec, &op_names, is_bindable)?;
+        transform_export_to_object(&src, is_file_spec, &op_names, is_bindable, project_all)?;
     // Compose the stage maps: `map` entries are lines of the
     // decl-stripped source — resolve each through `map_decls` (→
     // comment-stripped line) then `map_comments` (→ original line).
@@ -398,6 +428,7 @@ fn transform_export_to_object(
     is_file_spec: &dyn Fn(&str) -> bool,
     op_names: &[String],
     is_bindable: &dyn Fn(&str) -> bool,
+    project_all: bool,
 ) -> Result<(String, Vec<Option<u32>>, bool), LangError> {
     // Line index for provenance: piece origins are computed as
     // `line_of(byte_offset)` where offsets come from subslice pointer
@@ -812,6 +843,52 @@ fn transform_export_to_object(
         }
     }
     out.push("{ ", None);
+    if project_all {
+        // Scope projection ([`prepare_module_scope_mapped`]): the record
+        // carries EVERY top-level binding — private helpers included —
+        // plus import-bound locals, mirroring the no-exports projection
+        // so scope consumers see the same names the source's own
+        // `do { … }` evaluation would leave bound. `seen` dedups names
+        // bound more than once (the field reads the final value either
+        // way).
+        let mut seen = std::collections::HashSet::new();
+        let mut first = true;
+        let sep = |out: &mut PreparedOut, first: &mut bool| {
+            if *first {
+                *first = false;
+            } else {
+                out.push(", ", None);
+            }
+        };
+        for item in &items {
+            let PrepItem::Bind {
+                name,
+                stmt_line,
+                pieces,
+                ..
+            } = item;
+            if !seen.insert(name.clone()) {
+                continue;
+            }
+            sep(&mut out, &mut first);
+            if is_bindable(name) {
+                out.push(&format!("{name}: {name}"), *stmt_line);
+            } else {
+                out.push(&format!("\"{name}\": "), *stmt_line);
+                out.push_expr_pieces(pieces);
+            }
+        }
+        for name in &import_bound {
+            if !is_bindable(name) || !seen.insert(name.clone()) {
+                continue;
+            }
+            sep(&mut out, &mut first);
+            out.push(&format!("{name}: {name}"), None);
+        }
+        out.push(" }", None);
+        out.push("\n}", None);
+        return Ok((out.text, out.map.into_vec(), has_exports));
+    }
     let mut first = true;
     for item in &items {
         let PrepItem::Bind {
@@ -1952,6 +2029,39 @@ mod tests {
         assert_eq!(
             prepare_module(src, &|_| false, &|_| true).expect("prep"),
             p.source
+        );
+    }
+
+    /// [`prepare_module_scope_mapped`] projects every top-level binding
+    /// into the result record — private helpers included — while still
+    /// validating `export` declarations. The default
+    /// [`prepare_module_mapped`] keeps projecting declared exports only.
+    #[test]
+    fn scope_mapped_projects_private_bindings_under_exports() {
+        let src = "helper := (x) ~> x + 1\nexport answer := helper(1)\nexport answer\n";
+        let scoped = prepare_module_scope_mapped(src, &|_| false, &|_| true).expect("prep");
+        // Both the private helper and the exported answer are fields.
+        assert!(
+            scoped.source.contains("helper: helper"),
+            "private binding missing from scope record:\n{}",
+            scoped.source
+        );
+        assert!(
+            scoped.source.contains("answer: answer"),
+            "exported binding missing from scope record:\n{}",
+            scoped.source
+        );
+        // The assigns still emit every binding before the record.
+        assert!(scoped.source.contains("helper :="));
+        assert!(scoped.source.contains("answer :="));
+
+        // Default mode is unchanged: only declared exports project.
+        let exported = prepare_module_mapped(src, &|_| false, &|_| true).expect("prep");
+        assert!(exported.source.contains("answer: answer"));
+        assert!(
+            !exported.source.contains("helper: helper"),
+            "private binding leaked into export record:\n{}",
+            exported.source
         );
     }
 
