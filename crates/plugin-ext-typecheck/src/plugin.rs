@@ -271,6 +271,40 @@ mod tests {
     }
 
     #[test]
+    fn a_non_string_language_is_invalid_metadata() {
+        let plugin = plugin();
+        let err = with_ctx(|ctx| {
+            plugin.run(
+                &req(serde_json::json!({ "source": "x := 1", "language": 42 })),
+                ctx,
+            )
+        })
+        .expect_err("a non-string `language` must fail");
+        assert!(
+            matches!(err, PlatformError::InvalidMetadata(_)),
+            "got {err:?}"
+        );
+    }
+
+    #[test]
+    fn a_parse_failure_is_an_error_response_not_a_platform_error() {
+        // Non-`Engine` LangError variants take the `other.to_string()`
+        // arm and report `status: "error"`.
+        let plugin = plugin();
+        let res = with_ctx(|ctx| {
+            plugin
+                .run(&req(serde_json::json!({ "source": "x := 1 +" })), ctx)
+                .expect("a parse failure is a response, not a PlatformError")
+        });
+        assert_eq!(
+            res.0.get("status").and_then(|v| v.as_str()),
+            Some("error"),
+            "got {}",
+            res.0
+        );
+    }
+
+    #[test]
     fn declares_the_typecheck_capability() {
         let plugin = plugin();
         assert_eq!(plugin.id(), "ext.typecheck");

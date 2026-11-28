@@ -726,6 +726,44 @@ mod tests {
     }
 
     #[test]
+    fn coverage_timeout_and_jobs_flags_run_end_to_end() {
+        // Opt-in flags: `coverage` attaches a coverage session and a
+        // `coverage` JSON block to the response; `timeout` and `jobs`
+        // configure the run.
+        let project = Project::new("flags");
+        let res = run_payload(serde_json::json!({
+            "paths": project.paths("pass"),
+            "coverage": true,
+            "timeout": 30.0,
+            "jobs": 2,
+        }));
+
+        assert_eq!(status_of(&res), "ok");
+        assert!(
+            res.get("coverage").is_some(),
+            "the coverage session must attach a report, got {res}"
+        );
+    }
+
+    #[test]
+    fn a_missing_path_is_a_discovery_error() {
+        let plugin = plugin();
+        let err = with_ctx(|ctx| {
+            plugin.run(
+                &req(serde_json::json!({
+                    "paths": ["/definitely/not/a/real/dir-9f3e2a"],
+                })),
+                ctx,
+            )
+        })
+        .expect_err("a nonexistent path must fail discovery");
+        assert!(
+            matches!(err, PlatformError::Plugin(_)),
+            "got {err:?}"
+        );
+    }
+
+    #[test]
     fn a_passing_project_reports_ok_with_a_summary_and_a_human_report() {
         let project = Project::new("pass");
         let res = run_payload(serde_json::json!({ "paths": project.paths("pass") }));

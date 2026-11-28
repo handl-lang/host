@@ -704,6 +704,37 @@ mod tests {
     }
 
     #[test]
+    fn fix_outcome_maps_apply_failures_to_fix_errors() {
+        // A `handl:` rule whose fix runs past the end of the source makes
+        // the fixpoint's apply fail — `LintFixError::Apply`/`NotConverged`
+        // surface as `LintError::Fix`, not `Parse`.
+        let mut lang = canonical_ctx().lang().clone();
+        lang.lints
+            .merge(handl_language::LintRuleDef::new(
+                "lint.test.oob",
+                "oob-fix",
+                "warning",
+                "oob",
+                handl_language::LintCheck::Native("handl:t.oob".into()),
+            ))
+            .unwrap();
+        let resolver = HandlNativeLint::new()
+            .with_module(handl_plugin_lib_handl::HandlModule::new(
+                "t",
+                "export oob := m ~> [{fix: {start: 0, end: 999999, replacement: \"x\"}}]",
+                &["oob"],
+            ))
+            .resolver();
+        let ctx = LintContext::with_resolver(lang, resolver);
+        let src =
+            handl_plugin_ext_fmt::format_source_with_language(ctx.lang(), "x := 1;").expect("fmt");
+        assert!(
+            matches!(fix_outcome(&ctx, &src), Err(LintError::Fix(_))),
+            "an out-of-bounds fix must be a Fix error"
+        );
+    }
+
+    #[test]
     fn fix_outcome_propagates_a_lint_failure() {
         // Unlike the old `compute_fixes` (which swallowed lint errors into
         // "no fixes"), the engine fixpoint reports them honestly.
