@@ -287,6 +287,41 @@ mod tests {
     }
 
     #[test]
+    fn a_string_language_tag_is_forwarded() {
+        let plugin = plugin();
+        let res = with_ctx(|ctx| {
+            plugin
+                .run(
+                    &req(serde_json::json!({ "source": "x := 1", "language": "handl" })),
+                    ctx,
+                )
+                .expect("typecheck runs")
+        });
+        assert_eq!(res.0.get("status").and_then(|v| v.as_str()), Some("ok"));
+    }
+
+    #[test]
+    fn a_lex_failure_is_an_error_response_not_a_platform_error() {
+        // `LexError` is a non-`Engine` variant — the `other.to_string()`
+        // arm — and reports `status: "error"`.
+        let plugin = plugin();
+        let res = with_ctx(|ctx| {
+            plugin
+                .run(
+                    &req(serde_json::json!({ "source": "x := \"unterminated" })),
+                    ctx,
+                )
+                .expect("a lex failure is a response, not a PlatformError")
+        });
+        assert_eq!(
+            res.0.get("status").and_then(|v| v.as_str()),
+            Some("error"),
+            "got {}",
+            res.0
+        );
+    }
+
+    #[test]
     fn a_parse_failure_is_an_error_response_not_a_platform_error() {
         // Non-`Engine` LangError variants take the `other.to_string()`
         // arm and report `status: "error"`.

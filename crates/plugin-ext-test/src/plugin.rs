@@ -696,6 +696,12 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "no status")]
+    fn status_of_panics_on_a_statusless_response() {
+        let _ = status_of(&serde_json::json!({"ok": true}));
+    }
+
+    #[test]
     fn an_explicit_null_tags_is_treated_as_absent() {
         let project = Project::new("nulltags");
         let res = run_payload(serde_json::json!({

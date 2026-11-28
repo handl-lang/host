@@ -903,6 +903,25 @@ mod tests {
     }
 
     #[test]
+    fn fix_file_reports_apply_failures_on_an_unwritable_root() {
+        // The journaled apply cannot write under a read-only root — the
+        // per-round `Engine::apply` report carries failures, which
+        // `fix_file` surfaces as `LintError::Fix`.
+        use std::os::unix::fs::PermissionsExt;
+        let ctx = canonical_ctx();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        std::fs::write(root.join("a.hnl"), "x   :=   1;").expect("seed file");
+        std::fs::set_permissions(root, std::fs::Permissions::from_mode(0o555))
+            .expect("chmod");
+
+        let err = fix_file(&ctx, root, "a.hnl").expect_err("must fail");
+        std::fs::set_permissions(root, std::fs::Permissions::from_mode(0o755))
+            .expect("chmod back");
+        assert!(matches!(err, LintError::Fix(_)), "got {err:?}");
+    }
+
+    #[test]
     fn fix_file_rejects_non_utf8_source() {
         let ctx = canonical_ctx();
         let dir = tempfile::tempdir().expect("tempdir");
