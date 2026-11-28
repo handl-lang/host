@@ -469,6 +469,65 @@ fn export_parametric_family_value_carries_ctors() {
     std::fs::remove_dir_all(&root).ok();
 }
 
+/// The parenthesized parameter spelling `export Vec(n : Nat, a : Type)
+/// := new Inductive { … }` is the same parametric family declaration —
+/// the `(…)` list must strip to the bare family name exactly like the
+/// `<…>` form, or the export record gets a garbage
+/// `"Vec(n : Nat, a : Type)"` key and `j.Vec` is `null`.
+#[test]
+fn export_parametric_family_paren_params_carries_ctors() {
+    let root = scratch_dir("export-parametric-family-paren");
+    let src = "export Vec(n : Nat, a : Type) := new Inductive { VNil : Vec(0, a), VCons : (x : a, xs : Vec(n, a)) ~> Vec(n + 1, a) }\n";
+
+    let value = run(
+        &root.join("apply"),
+        src,
+        r#"do {
+            from "mod.hnl" import * as j;
+            VNil := j.Vec.VNil;
+            VCons := j.Vec.VCons;
+            match VCons(1, VNil) { VNil: 0, VCons(x, xs): x }
+        }"#,
+    )
+    .expect("paren-param j.Vec.VCons must apply through the family record");
+    assert_eq!(value, json!(1));
+
+    let names = handl_runtime::module_prep::module_export_names(src);
+    assert!(
+        names.iter().any(|n| n == "Vec"),
+        "missing export Vec: {names:?}"
+    );
+    assert!(
+        !names.iter().any(|n| n.contains('(')),
+        "param list must not leak into the export name: {names:?}"
+    );
+    std::fs::remove_dir_all(&root).ok();
+}
+
+/// A *private* (non-exported) parametric family binding inside a module
+/// that has `export` declarations rode the same broken name extraction —
+/// `Vec(n : Nat, a : Type) := …` was not a bindable name, so the
+/// declaration was silently dropped from the prepared `do` block.
+#[test]
+fn private_parametric_family_binding_survives_in_export_module() {
+    let root = scratch_dir("private-parametric-family");
+    let src = "Vec(n : Nat, a : Type) := new Inductive { VNil : Vec(0, a), VCons : (x : a, xs : Vec(n, a)) ~> Vec(n + 1, a) }\nexport mk := Vec.VCons(1, Vec.VNil)\n";
+
+    // `Vec` stays private, so the consumer cannot alias its ctors for a
+    // `match`; the minted ctor object's payload field is the observable.
+    let value = run(
+        &root.join("use"),
+        src,
+        r#"do {
+            from "mod.hnl" import * as j;
+            j.mk.x
+        }"#,
+    )
+    .expect("private parametric family must evaluate under an export module");
+    assert_eq!(value, json!(1));
+    std::fs::remove_dir_all(&root).ok();
+}
+
 /// `j.F.rec` still reaches the eliminator through the exported family
 /// record — `Nat.rec(null, zeroCase, succStep)(v)` is the shape
 /// `desugar_match_to_recursor` emits for a parameter-free family.

@@ -1881,6 +1881,13 @@ fn strip_export_name(s: &str) -> String {
     while i < bytes.len() {
         let c = bytes[i];
         match c {
+            // A depth-0 `(` opens the parameter list of a parametric
+            // family declaration (`export F(n : Nat, a : Type) := new
+            // Inductive { … }`) — the canonical `data`-free spelling
+            // alongside `F<…>`; the name is the identifier before it.
+            b'(' if depth == 0 => {
+                return s[..i].trim().to_string();
+            }
             b'(' | b'[' | b'{' => depth += 1,
             b')' | b']' | b'}' => depth -= 1,
             b'<' | b':' if depth == 0 => {

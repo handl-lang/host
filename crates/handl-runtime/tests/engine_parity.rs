@@ -1086,6 +1086,42 @@ fn self_recursive_arrow_without_data_types() {
     }
 }
 
+/// Nullary ctor-object patterns inside a compiled arrow body (ADR-0152
+/// §2): `Ast::instantiate` copies match-pattern subtrees raw, so a
+/// `subst`-baked ctor object would leave the pattern's `var` unbound and
+/// `try_pattern`'s `scope_value` miss degrades it to a catch-all binder —
+/// the first arm then swallows every scrutinee. The bytecode `Closure`
+/// fast path must keep ctor objects in residual `binds`, mirroring the
+/// shared `closure` op. Guards the parametric-family case where the
+/// nullary ctor (`VNil`) is arrow-free and would otherwise be baked.
+#[test]
+fn ctor_object_pattern_inside_arrow_parity() {
+    let mk = |scrut: &str| {
+        format!(
+            "do {{
+          Nat := {{ Zero : Nat, Succ : (pred : Nat) ~> Nat }}
+          Vec<n : Nat, a : Type> := {{ VNil : Vec<0, a>, VCons : (x : a, xs : Vec<n, a>) ~> Vec<n + 1, a> }}
+          hdof := v ~> match v {{ VNil: 0, VCons(x, xs): 1 }}
+          hdof({scrut})
+        }}"
+        )
+    };
+    for (name, rt) in [
+        ("tree-walk", tree_walk()),
+        ("bytecode", bytecode()),
+        ("cranelift", cranelift()),
+    ] {
+        let cons = mk("VCons(Zero, VCons(Zero, VNil))");
+        let got = eval_engine_path(&rt, &cons)
+            .unwrap_or_else(|e| panic!("{name} engine-path failed on {cons:?}: {e}"));
+        assert_eq!(got, json!(1), "{name} VCons scrutinee");
+        let nil = mk("VNil");
+        let got = eval_engine_path(&rt, &nil)
+            .unwrap_or_else(|e| panic!("{name} engine-path failed on {nil:?}: {e}"));
+        assert_eq!(got, json!(0), "{name} VNil scrutinee");
+    }
+}
+
 const SRC: &str =
     "do {
           Nat := { Zero : Nat, Succ : (pred : Nat) ~> Nat }
